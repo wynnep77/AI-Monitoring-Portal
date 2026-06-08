@@ -224,9 +224,50 @@ gpu-monitor-dashboard/
 
 ### GPU Not Detected
 
-- Ensure NVIDIA drivers are installed: `nvidia-smi`
-- Verify NVIDIA Container Toolkit is installed
-- Check Docker daemon configuration includes NVIDIA runtime
+If the dashboard shows "No GPUs detected" but you have NVIDIA GPUs:
+
+1. **Verify NVIDIA drivers on host:**
+   ```bash
+   nvidia-smi
+   ```
+   This should show your GPU information.
+
+2. **Check NVIDIA Container Toolkit:**
+   ```bash
+   docker run --rm --gpus all nvidia/cuda:12.1.0-runtime-ubuntu22.04 nvidia-smi
+   ```
+   This should show GPU information from within a container.
+
+3. **Verify NVIDIA runtime is configured:**
+   ```bash
+   docker info | grep -i runtime
+   ```
+   You should see "nvidia" in the runtimes list.
+
+4. **Check container logs for GPU initialization errors:**
+   ```bash
+   docker-compose logs gpu-monitor
+   ```
+   Look for NVML initialization errors or nvidia-smi output.
+
+5. **For Docker Compose users:**
+   - Ensure `runtime: nvidia` is set in docker-compose.yml
+   - If using Docker Swarm, use the deploy resources section instead
+   - Restart the container after changes:
+     ```bash
+     docker-compose down
+     docker-compose up -d
+     ```
+
+6. **Test GPU access manually:**
+   ```bash
+   docker exec -it gpu-monitor-dashboard nvidia-smi
+   ```
+
+7. **For Windows users:**
+   - Ensure WSL2 is properly configured
+   - Check Docker Desktop GPU settings are enabled
+   - Verify NVIDIA WSL drivers are installed
 
 ### Database Errors
 

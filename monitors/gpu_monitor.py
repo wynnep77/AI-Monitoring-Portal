@@ -1,4 +1,5 @@
 import pynvml
+import subprocess
 from datetime import datetime
 from typing import List, Dict, Optional
 from database import GPUMetric, get_db
@@ -6,11 +7,36 @@ from database import GPUMetric, get_db
 class GPUMonitor:
     def __init__(self):
         self.initialized = False
+        self.init_error = None
         try:
             pynvml.nvmlInit()
             self.initialized = True
+            print("NVML initialized successfully")
         except Exception as e:
+            self.init_error = str(e)
             print(f"Failed to initialize NVML: {e}")
+            print("Attempting to check GPU availability via nvidia-smi...")
+            self._check_nvidia_smi()
+    
+    def _check_nvidia_smi(self):
+        """Check GPU availability using nvidia-smi command"""
+        try:
+            result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                gpu_names = result.stdout.strip().split('\n')
+                print(f"GPUs detected via nvidia-smi: {gpu_names}")
+                print("This indicates GPUs are available but NVML library may not be properly linked.")
+                print("Ensure the container is running with NVIDIA runtime.")
+            else:
+                print(f"nvidia-smi failed with return code: {result.returncode}")
+                print(f"Error: {result.stderr}")
+        except FileNotFoundError:
+            print("nvidia-smi command not found. NVIDIA drivers may not be installed.")
+        except subprocess.TimeoutExpired:
+            print("nvidia-smi command timed out.")
+        except Exception as e:
+            print(f"Error running nvidia-smi: {e}")
     
     def get_gpu_count(self) -> int:
         """Get number of GPUs"""

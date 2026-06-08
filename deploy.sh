@@ -10,10 +10,48 @@ echo "GPU Monitor Dashboard Deployment"
 echo "=========================================="
 echo ""
 
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then 
+    echo "⚠️  Some operations may require sudo. If installation fails, run with sudo."
+fi
+
+# Check and install Python3
+if ! command -v python3 &> /dev/null; then
+    echo "📦 Python3 not found. Installing..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update -y
+        sudo apt-get install -y python3
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y python3
+    else
+        echo "❌ Cannot install Python3 automatically. Please install it manually."
+        exit 1
+    fi
+else
+    echo "✅ Python3 is installed"
+fi
+
+# Check and install pip3
+if ! command -v pip3 &> /dev/null; then
+    echo "📦 pip3 not found. Installing..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update -y
+        sudo apt-get install -y python3-pip
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y python3-pip
+    else
+        echo "📦 Installing pip via ensurepip..."
+        python3 -m ensurepip --upgrade
+    fi
+else
+    echo "✅ pip3 is installed"
+fi
+
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "❌ Docker is not installed. Please install Docker first."
     echo "Visit: https://docs.docker.com/get-docker/"
+    echo "Or run: sudo ./install-ubuntu.sh (for Ubuntu systems)"
     exit 1
 fi
 
@@ -23,6 +61,7 @@ echo "✅ Docker is installed"
 if ! command -v docker-compose &> /dev/null; then
     echo "❌ Docker Compose is not installed. Please install Docker Compose first."
     echo "Visit: https://docs.docker.com/compose/install/"
+    echo "Or run: sudo ./install-ubuntu.sh (for Ubuntu systems)"
     exit 1
 fi
 

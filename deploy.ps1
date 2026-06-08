@@ -6,6 +6,26 @@ Write-Host "GPU Monitor Dashboard Deployment" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
+# Check if Python is installed
+try {
+    $pythonVersion = python --version 2>&1
+    Write-Host "✅ Python is installed: $pythonVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Python is not installed. Please install Python 3.8 or higher." -ForegroundColor Red
+    Write-Host "Visit: https://www.python.org/downloads/" -ForegroundColor Yellow
+    exit 1
+}
+
+# Check if pip is installed
+try {
+    $pipVersion = pip --version 2>&1
+    Write-Host "✅ pip is installed: $pipVersion" -ForegroundColor Green
+} catch {
+    Write-Host "❌ pip is not installed. Please install pip." -ForegroundColor Red
+    Write-Host "Python installer usually includes pip. Reinstall Python with pip included." -ForegroundColor Yellow
+    exit 1
+}
+
 # Check if Docker is installed
 try {
     $dockerVersion = docker --version

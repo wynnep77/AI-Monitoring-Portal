@@ -4,7 +4,6 @@ psutil==5.9.6
 pandas==2.1.4
 plotly==5.18.0
 sqlalchemy==2.0.23
-sqlite3-to-mysql==1.0.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 APScheduler==3.10.4

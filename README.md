@@ -11,6 +11,7 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 - **Historical Data**: Store performance data for up to 1 year with configurable sampling rates
 - **Clean UI**: VMware vCenter-inspired interface with real-time charts and metrics
 - **Docker Deployment**: Fully containerized deployment with automated setup scripts
+- **Auto-Update Agent**: Automatically checks for and applies updates from GitHub
 
 ## Supported GPU Models
 
@@ -307,6 +308,120 @@ streamlit run app.py
 2. Implement `collect_metrics()` and `get_historical_metrics()` methods
 3. Add database model in `database.py`
 4. Integrate into `app.py`
+
+## Auto-Update Agent
+
+The GPU Monitor Dashboard includes an auto-update agent that automatically checks for updates from GitHub and applies them.
+
+### Features
+
+- Automatically checks for updates every hour (configurable)
+- Pulls latest changes from GitHub
+- Restarts the application with the new version
+- Logs all update activities
+- Runs as a system service (Linux) or scheduled task (Windows)
+
+### Installation
+
+#### Ubuntu/Linux
+
+```bash
+# Install the update agent as a systemd service
+sudo chmod +x install-update-agent.sh
+sudo ./install-update-agent.sh
+```
+
+The agent will:
+- Install as a systemd service named `gpu-monitor-update-agent`
+- Start automatically on system boot
+- Check for updates every hour (configurable via `UPDATE_CHECK_INTERVAL` environment variable)
+
+#### Windows
+
+```powershell
+# Install the update agent as a scheduled task
+.\install-update-agent.ps1
+```
+
+The agent will:
+- Install as a Windows Scheduled Task named `GPU-Monitor-Update-Agent`
+- Run with SYSTEM privileges
+- Check for updates every hour
+
+### Configuration
+
+The update check interval can be configured by setting the `UPDATE_CHECK_INTERVAL` environment variable (in seconds):
+
+**Linux (systemd):**
+Edit `/etc/systemd/system/gpu-monitor-update-agent.service` and modify:
+```
+Environment="UPDATE_CHECK_INTERVAL=3600"
+```
+Then reload: `sudo systemctl daemon-reload && sudo systemctl restart gpu-monitor-update-agent`
+
+**Windows:**
+Modify the trigger interval in the scheduled task settings or edit the `install-update-agent.ps1` script before installation.
+
+### Management
+
+#### Linux
+
+```bash
+# Check service status
+sudo systemctl status gpu-monitor-update-agent
+
+# View logs
+sudo journalctl -u gpu-monitor-update-agent -f
+
+# Stop the service
+sudo systemctl stop gpu-monitor-update-agent
+
+# Start the service
+sudo systemctl start gpu-monitor-update-agent
+
+# Disable the service
+sudo systemctl disable gpu-monitor-update-agent
+
+# Enable the service
+sudo systemctl enable gpu-monitor-update-agent
+```
+
+#### Windows
+
+```powershell
+# Check task status
+Get-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
+
+# View task history
+Get-ScheduledTaskInfo -TaskName 'GPU-Monitor-Update-Agent'
+
+# Stop the task
+Stop-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
+
+# Start the task
+Start-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
+
+# Remove the task
+Unregister-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent' -Confirm:$false
+```
+
+### Manual Update
+
+To manually trigger an update check:
+
+```bash
+# Run the update agent manually
+python3 update_agent.py
+```
+
+The agent will check for updates, apply them if available, and restart the application.
+
+### Logs
+
+Update agent logs are stored in:
+- **Linux**: Systemd journal (`journalctl -u gpu-monitor-update-agent`)
+- **Windows**: `update_agent.log` in the application directory
+- **Both**: `update_agent.log` in the application directory (when run manually)
 
 ## License
 

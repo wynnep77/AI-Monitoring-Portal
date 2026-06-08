@@ -1,0 +1,15 @@
+[Unit]
+Description=GPU Monitor Dashboard Auto-Update Agent
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/path/to/gpu-monitor-dashboard
+ExecStart=/usr/bin/python3 /path/to/gpu-monitor-dashboard/update_agent.py
+Restart=always
+RestartSec=10
+Environment="UPDATE_CHECK_INTERVAL=3600"
+
+[Install]
+WantedBy=multi-user.target

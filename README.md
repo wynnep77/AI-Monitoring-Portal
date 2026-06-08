@@ -21,10 +21,9 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 
 ## Prerequisites
 
-- Docker and Docker Compose
 - NVIDIA GPU with drivers installed
-- NVIDIA Container Toolkit (for GPU access in Docker)
 - For Windows: Docker Desktop with WSL2 support
+- For Ubuntu: Docker, Docker Compose, and NVIDIA Container Toolkit (can be installed automatically via install script)
 
 ## Quick Start
 
@@ -43,12 +42,36 @@ cd gpu-monitor-dashboard
 
 3. Access the dashboard at `http://localhost:8000`
 
-### Linux Deployment
+### Ubuntu Deployment (Recommended)
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
-cd gpu-monitor-dashboard
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
+```
+
+2. Run the installation script (installs Docker, NVIDIA Container Toolkit, and dependencies):
+```bash
+sudo chmod +x install-ubuntu.sh
+sudo ./install-ubuntu.sh
+```
+
+3. Run the deployment script:
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+4. Access the dashboard at `http://localhost:8000`
+
+### Linux/Ubuntu Manual Deployment
+
+If you already have Docker and NVIDIA Container Toolkit installed:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
 ```
 
 2. Make the deployment script executable:
@@ -182,6 +205,7 @@ gpu-monitor-dashboard/
 ├── requirements.txt            # Python dependencies
 ├── Dockerfile                  # Docker image definition
 ├── docker-compose.yml          # Docker Compose configuration
+├── install-ubuntu.sh           # Ubuntu installation script
 ├── deploy.sh                   # Linux deployment script
 ├── deploy.ps1                  # Windows deployment script
 ├── .env.example                # Environment variables template

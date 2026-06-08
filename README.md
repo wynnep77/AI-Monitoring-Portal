@@ -23,17 +23,21 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 ## Prerequisites
 
 - NVIDIA GPU with drivers installed
-- For Windows: Docker Desktop with WSL2 support
-- For Ubuntu: Docker, Docker Compose, and NVIDIA Container Toolkit (can be installed automatically via install script)
+- Python 3.8 or higher
+- pip (Python package manager)
+- For Docker deployment: Docker Desktop (Windows) or Docker + Docker Compose (Ubuntu)
+- For native deployment: Only Python and pip required
 
 ## Quick Start
 
-### Windows Deployment
+### Option 1: Docker Deployment (Recommended for production)
+
+#### Windows Deployment
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
-cd gpu-monitor-dashboard
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
 ```
 
 2. Run the deployment script:
@@ -43,7 +47,7 @@ cd gpu-monitor-dashboard
 
 3. Access the dashboard at `http://localhost:8000`
 
-### Ubuntu Deployment (Recommended)
+#### Ubuntu Deployment
 
 1. Clone the repository:
 ```bash
@@ -64,6 +68,64 @@ chmod +x deploy.sh
 ```
 
 4. Access the dashboard at `http://localhost:8000`
+
+### Option 2: Native Python Deployment (No Docker)
+
+This method runs the application directly on the host system without Docker. It provides direct GPU access and is simpler to troubleshoot.
+
+#### Windows Native Deployment
+
+1. Clone the repository:
+```bash
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
+```
+
+2. Run the native deployment script:
+```powershell
+.\deploy-native.ps1
+```
+
+3. Start the dashboard:
+```powershell
+.\start-dashboard.bat
+```
+
+4. Access the dashboard at `http://localhost:8000`
+
+#### Ubuntu Native Deployment
+
+1. Clone the repository:
+```bash
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
+```
+
+2. Run the native deployment script:
+```bash
+chmod +x deploy-native.sh
+sudo ./deploy-native.sh
+```
+
+3. The service will start automatically. Access the dashboard at `http://localhost:8000`
+
+**Service management:**
+```bash
+# Check status
+sudo systemctl status gpu-monitor-native
+
+# View logs
+sudo journalctl -u gpu-monitor-native -f
+
+# Stop
+sudo systemctl stop gpu-monitor-native
+
+# Start
+sudo systemctl start gpu-monitor-native
+
+# Restart
+sudo systemctl restart gpu-monitor-native
+```
 
 ### Linux/Ubuntu Manual Deployment
 

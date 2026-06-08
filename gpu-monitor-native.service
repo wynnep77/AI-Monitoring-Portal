@@ -1,0 +1,15 @@
+[Unit]
+Description=GPU Monitor Dashboard (Native)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/path/to/gpu-monitor-dashboard
+ExecStart=/path/to/gpu-monitor-dashboard/venv/bin/streamlit run app.py --server.port 8000 --server.address 0.0.0.0
+Restart=always
+RestartSec=10
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

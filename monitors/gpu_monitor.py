@@ -1,5 +1,6 @@
 import pynvml
 import subprocess
+import re
 from datetime import datetime
 from typing import List, Dict, Optional
 from database import GPUMetric, get_db
@@ -8,6 +9,7 @@ class GPUMonitor:
     def __init__(self):
         self.initialized = False
         self.init_error = None
+        self.use_smi_fallback = False
         try:
             pynvml.nvmlInit()
             self.initialized = True
@@ -16,9 +18,12 @@ class GPUMonitor:
             self.init_error = str(e)
             print(f"Failed to initialize NVML: {e}")
             print("Attempting to check GPU availability via nvidia-smi...")
-            self._check_nvidia_smi()
+            if self._check_nvidia_smi():
+                print("GPUs available via nvidia-smi, using fallback method")
+                self.use_smi_fallback = True
+                self.initialized = True
     
-    def _check_nvidia_smi(self):
+    def _check_nvidia_smi(self) -> bool:
         """Check GPU availability using nvidia-smi command"""
         try:
             result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader'], 
@@ -26,21 +31,100 @@ class GPUMonitor:
             if result.returncode == 0:
                 gpu_names = result.stdout.strip().split('\n')
                 print(f"GPUs detected via nvidia-smi: {gpu_names}")
-                print("This indicates GPUs are available but NVML library may not be properly linked.")
-                print("Ensure the container is running with NVIDIA runtime.")
+                return True
             else:
                 print(f"nvidia-smi failed with return code: {result.returncode}")
                 print(f"Error: {result.stderr}")
+                return False
         except FileNotFoundError:
             print("nvidia-smi command not found. NVIDIA drivers may not be installed.")
+            return False
         except subprocess.TimeoutExpired:
             print("nvidia-smi command timed out.")
+            return False
         except Exception as e:
             print(f"Error running nvidia-smi: {e}")
+            return False
+    
+    def _get_gpu_info_smi(self, gpu_id: int) -> Optional[Dict]:
+        """Get GPU info using nvidia-smi as fallback"""
+        try:
+            # Get GPU name
+            name_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=name', '--format=csv,noheader', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            if name_result.returncode != 0:
+                return None
+            gpu_name = name_result.stdout.strip()
+            
+            # Get utilization
+            util_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            utilization = int(util_result.stdout.strip()) if util_result.returncode == 0 else 0
+            
+            # Get memory info
+            mem_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            if mem_result.returncode == 0:
+                mem_used, mem_total = map(int, mem_result.stdout.strip().split(','))
+                mem_used_gb = mem_used / 1024
+                mem_total_gb = mem_total / 1024
+            else:
+                mem_used_gb = 0
+                mem_total_gb = 0
+            
+            # Get temperature
+            temp_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            temperature = int(temp_result.stdout.strip()) if temp_result.returncode == 0 else 0
+            
+            # Get power usage
+            power_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=power.draw', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            power_usage = float(power_result.stdout.strip()) if power_result.returncode == 0 else 0.0
+            
+            # Get fan speed
+            fan_result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=fan.speed', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
+                capture_output=True, text=True, timeout=5
+            )
+            fan_speed = int(fan_result.stdout.strip()) if fan_result.returncode == 0 else 0
+            
+            return {
+                "gpu_id": gpu_id,
+                "gpu_name": gpu_name,
+                "utilization": utilization,
+                "memory_used": mem_used_gb,
+                "memory_total": mem_total_gb,
+                "temperature": temperature,
+                "power_usage": power_usage,
+                "fan_speed": fan_speed
+            }
+        except Exception as e:
+            print(f"Error getting GPU {gpu_id} info via nvidia-smi: {e}")
+            return None
     
     def get_gpu_count(self) -> int:
         """Get number of GPUs"""
         if not self.initialized:
+            return 0
+        if self.use_smi_fallback:
+            try:
+                result = subprocess.run(['nvidia-smi', '--query-gpu=count', '--format=csv,noheader'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    return int(result.stdout.strip())
+            except:
+                pass
             return 0
         try:
             return pynvml.nvmlDeviceGetCount()
@@ -51,6 +135,9 @@ class GPUMonitor:
         """Get detailed information for a specific GPU"""
         if not self.initialized:
             return None
+        
+        if self.use_smi_fallback:
+            return self._get_gpu_info_smi(gpu_id)
         
         try:
             handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)

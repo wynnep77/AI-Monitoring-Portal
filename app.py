@@ -19,35 +19,36 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for VMware vCenter-like styling
+# Custom CSS for VMware vCenter-like styling with dark theme
 st.markdown("""
 <style>
     .main-header {
         font-size: 2.5rem;
         font-weight: 600;
-        color: #1E88E5;
+        color: #00B4D8;
         margin-bottom: 1rem;
     }
     .metric-card {
-        background: white;
+        background: #262730;
         padding: 1rem;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         margin: 0.5rem 0;
+        border: 1px solid #3E4147;
     }
     .metric-value {
         font-size: 2rem;
         font-weight: 700;
-        color: #262730;
+        color: #FAFAFA;
     }
     .metric-label {
         font-size: 0.875rem;
-        color: #6B7280;
+        color: #9CA3AF;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
     .stButton>button {
-        background-color: #1E88E5;
+        background-color: #00B4D8;
         color: white;
         border: none;
         border-radius: 4px;
@@ -55,12 +56,18 @@ st.markdown("""
         font-weight: 500;
     }
     .stButton>button:hover {
-        background-color: #1565C0;
+        background-color: #0096B4;
     }
     div[data-testid="stExpander"] {
-        background-color: #F8F9FA;
-        border: 1px solid #E5E7EB;
+        background-color: #1E2127;
+        border: 1px solid #3E4147;
         border-radius: 8px;
+    }
+    .stSelectbox > div > div > div {
+        background-color: #1E2127;
+    }
+    .stSlider > div > div > div {
+        background-color: #1E2127;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -126,56 +133,21 @@ def remove_server(server_id):
     finally:
         db.close()
 
-# Sidebar
+# Sidebar - simplified to just server selection
 with st.sidebar:
-    st.markdown('<div class="main-header">⚙️ Settings</div>', unsafe_allow_html=True)
-    
-    # Server management
-    st.subheader("Monitored Servers")
+    st.markdown('<div class="main-header">🖥️ Servers</div>', unsafe_allow_html=True)
     
     servers = load_servers()
-    
-    with st.expander("Add New Server", expanded=False):
-        new_server_name = st.text_input("Server Name", key="new_server_name")
-        new_server_host = st.text_input("Host/IP", key="new_server_host", value="localhost")
-        new_server_port = st.number_input("Port", key="new_server_port", value=22, min_value=1, max_value=65535)
-        is_local = st.checkbox("Local Server", value=True, key="is_local")
-        
-        if st.button("Add Server", key="add_server_btn"):
-            if new_server_name:
-                if add_server(new_server_name, new_server_host, new_server_port, is_local):
-                    st.success(f"Server '{new_server_name}' added successfully!")
-                    st.rerun()
-            else:
-                st.error("Please enter a server name")
     
     # Display existing servers
     if servers:
         st.subheader("Active Servers")
         for server in servers:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                if st.button(f"🖥️ {server.name}", key=f"select_{server.id}", use_container_width=True):
-                    st.session_state.selected_server = server.name
-                    st.rerun()
-            with col2:
-                if st.button("🗑️", key=f"delete_{server.id}"):
-                    if remove_server(server.id):
-                        st.success(f"Server '{server.name}' removed")
-                        st.rerun()
+            if st.button(f"🖥️ {server.name}", key=f"select_{server.id}", use_container_width=True):
+                st.session_state.selected_server = server.name
+                st.rerun()
     else:
-        st.info("No servers configured. Add a server to start monitoring.")
-    
-    st.divider()
-    
-    # Refresh settings
-    st.subheader("Refresh Settings")
-    st.session_state.auto_refresh = st.checkbox("Auto Refresh", value=st.session_state.auto_refresh)
-    st.session_state.refresh_interval = st.slider("Refresh Interval (seconds)", 1, 60, st.session_state.refresh_interval)
-    
-    if st.button("🧹 Cleanup Old Data"):
-        cleanup_old_data()
-        st.success("Old data cleaned up successfully!")
+        st.info("No servers configured. Add a server in Settings.")
 
 # Main content
 st.markdown('<div class="main-header">🖥️ GPU Monitor Dashboard</div>', unsafe_allow_html=True)
@@ -208,7 +180,7 @@ if storage_metrics:
     storage_monitor.collect_metrics(current_server)
 
 # Dashboard tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🎮 GPU Performance", "💻 CPU Performance", "💾 Storage Performance"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🎮 GPU Performance", "💻 CPU Performance", "💾 Storage Performance", "⚙️ Settings"])
 
 with tab1:
     st.subheader("System Overview")
@@ -473,6 +445,65 @@ with tab4:
                 st.metric("Used Space", f"{storage_info['used']:.2f} GB ({storage_info['percent']:.1f}%)")
     else:
         st.warning("Unable to retrieve storage metrics")
+
+with tab5:
+    st.subheader("Settings")
+    
+    # Server management
+    st.markdown("### Monitored Servers")
+    
+    with st.expander("Add New Server", expanded=False):
+        new_server_name = st.text_input("Server Name", key="new_server_name")
+        new_server_host = st.text_input("Host/IP", key="new_server_host", value="localhost")
+        new_server_port = st.number_input("Port", key="new_server_port", value=22, min_value=1, max_value=65535)
+        is_local = st.checkbox("Local Server", value=True, key="is_local")
+        
+        if st.button("Add Server", key="add_server_btn"):
+            if new_server_name:
+                if add_server(new_server_name, new_server_host, new_server_port, is_local):
+                    st.success(f"Server '{new_server_name}' added successfully!")
+                    st.rerun()
+            else:
+                st.error("Please enter a server name")
+    
+    # Display existing servers with delete option
+    if servers:
+        st.markdown("### Active Servers")
+        for server in servers:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.info(f"🖥️ {server.name} ({server.host}:{server.port})")
+            with col2:
+                if st.button("🗑️", key=f"delete_{server.id}"):
+                    if remove_server(server.id):
+                        st.success(f"Server '{server.name}' removed")
+                        st.rerun()
+    
+    st.divider()
+    
+    # Refresh settings
+    st.markdown("### Refresh Settings")
+    st.session_state.auto_refresh = st.checkbox("Auto Refresh", value=st.session_state.auto_refresh)
+    st.session_state.refresh_interval = st.slider("Refresh Interval (seconds)", 1, 60, st.session_state.refresh_interval)
+    
+    st.divider()
+    
+    # Data management
+    st.markdown("### Data Management")
+    if st.button("🧹 Cleanup Old Data"):
+        cleanup_old_data()
+        st.success("Old data cleaned up successfully!")
+    
+    st.markdown("### GPU Detection Status")
+    if gpu_monitor.initialized:
+        if gpu_monitor.use_smi_fallback:
+            st.warning("⚠️ Using nvidia-smi fallback mode (NVML not available)")
+        else:
+            st.success("✅ NVML initialized successfully")
+    else:
+        st.error("❌ GPU monitoring not initialized")
+        if gpu_monitor.init_error:
+            st.caption(f"Error: {gpu_monitor.init_error}")
 
 # Auto refresh
 if st.session_state.auto_refresh:

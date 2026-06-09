@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download, Brain } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './index.css';
 
@@ -204,45 +204,9 @@ function App() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-6">
-          {/* Sidebar */}
-          <aside className="w-64 flex-shrink-0">
-            <div className="glossy-card p-4">
-              <h2 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                <Server className="w-5 h-5" />
-                Servers
-              </h2>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setSelectedServer('localhost')}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                    selectedServer === 'localhost'
-                      ? 'bg-white text-navy-900 font-medium'
-                      : 'text-navy-200 hover:bg-navy-700'
-                  }`}
-                >
-                  🖥️ Localhost
-                </button>
-                {servers.map((server) => (
-                  <button
-                    key={server.id}
-                    onClick={() => setSelectedServer(server.name)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                      selectedServer === server.name
-                        ? 'bg-white text-navy-900 font-medium'
-                        : 'text-navy-200 hover:bg-navy-700'
-                    }`}
-                  >
-                    🖥️ {server.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </aside>
-
-          {/* Main Content */}
-          <main className="flex-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg-px-8 py-8">
+        {/* Main Content */}
+        <main className="flex-1">
             {/* Error Display */}
             {apiError && (
               <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
@@ -259,6 +223,8 @@ function App() {
                 { id: 'gpu', label: 'GPU', icon: Monitor },
                 { id: 'cpu', label: 'CPU', icon: Cpu },
                 { id: 'storage', label: 'Storage', icon: HardDrive },
+                { id: 'ollama', label: 'Ollama', icon: Brain },
+                { id: 'servers', label: 'Servers', icon: Server },
                 { id: 'settings', label: 'Settings', icon: Settings },
               ].map((tab) => (
                 <button
@@ -289,22 +255,30 @@ function App() {
             {activeTab === 'storage' && (
               <StorageTab serverName={selectedServer} API_BASE={API_BASE} />
             )}
-            {activeTab === 'settings' && (
-              <SettingsTab
+            {activeTab === 'ollama' && (
+              <OllamaTab serverName={selectedServer} API_BASE={API_BASE} />
+            )}
+            {activeTab === 'servers' && (
+              <ServersTab
                 servers={servers}
+                selectedServer={selectedServer}
+                setSelectedServer={setSelectedServer}
                 onAddServer={addServer}
                 onDeleteServer={deleteServer}
+                showAddServer={showAddServer}
+                setShowAddServer={setShowAddServer}
+              />
+            )}
+            {activeTab === 'settings' && (
+              <SettingsTab
                 onCleanup={cleanupData}
                 autoRefresh={autoRefresh}
                 setAutoRefresh={setAutoRefresh}
                 refreshInterval={refreshInterval}
                 setRefreshInterval={setRefreshInterval}
-                showAddServer={showAddServer}
-                setShowAddServer={setShowAddServer}
               />
             )}
           </main>
-        </div>
       </div>
     </div>
   );
@@ -384,28 +358,6 @@ function OverviewTab({ overview, loading }) {
                 1m: {overview.cpu.load_avg_1m.toFixed(2)} | 5m: {overview.cpu.load_avg_5m.toFixed(2)}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Storage Cards */}
-      {overview.storage && overview.storage.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Storage</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {overview.storage.map((storage, idx) => (
-              <div key={idx} className="glossy-card p-6">
-                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-                  {storage.device} ({storage.mountpoint})
-                </div>
-                <div className="text-3xl font-bold text-white mb-2">
-                  {storage.percent.toFixed(1)}%
-                </div>
-                <div className="text-sm text-navy-200">
-                  {storage.used.toFixed(1)} GB used of {storage.total.toFixed(1)} GB
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
@@ -905,14 +857,62 @@ function StorageTab({ serverName, API_BASE }) {
 
 // Settings Tab Component
 function SettingsTab({
-  servers,
-  onAddServer,
-  onDeleteServer,
   onCleanup,
   autoRefresh,
   setAutoRefresh,
   refreshInterval,
-  setRefreshInterval,
+  setRefreshInterval
+}) {
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-white">Settings</h2>
+      
+      {/* Refresh Settings */}
+      <div className="glossy-card p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Refresh Settings</h3>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="auto_refresh"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="auto_refresh" className="text-white">Auto Refresh</label>
+          </div>
+          <div>
+            <label className="text-sm text-navy-300 block mb-2">Refresh Interval (seconds)</label>
+            <input
+              type="number"
+              value={refreshInterval}
+              onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
+              className="glossy-input w-full"
+              min="1"
+              max="60"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Data Management */}
+      <div className="glossy-card p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
+        <button onClick={onCleanup} className="glossy-button">
+          🧹 Cleanup Old Data
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Servers Tab Component
+function ServersTab({
+  servers,
+  selectedServer,
+  setSelectedServer,
+  onAddServer,
+  onDeleteServer,
   showAddServer,
   setShowAddServer
 }) {
@@ -926,12 +926,41 @@ function SettingsTab({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Settings</h2>
-      
-      {/* Server Management */}
+      <h2 className="text-2xl font-bold text-white">Servers</h2>
+
+      {/* Server Selection */}
       <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Monitored Servers</h3>
-        
+        <h3 className="text-lg font-semibold text-white mb-4">Select Server</h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => setSelectedServer('localhost')}
+            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+              selectedServer === 'localhost'
+                ? 'bg-white text-navy-900 font-medium'
+                : 'text-navy-200 hover:bg-navy-700'
+            }`}
+          >
+            🖥️ Localhost
+          </button>
+          {servers.map((server) => (
+            <button
+              key={server.id}
+              onClick={() => setSelectedServer(server.name)}
+              className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                selectedServer === server.name
+                  ? 'bg-white text-navy-900 font-medium'
+                  : 'text-navy-200 hover:bg-navy-700'
+              }`}
+            >
+              🖥️ {server.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Add Server */}
+      <div className="glossy-card p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Add Server</h3>
         <button
           onClick={() => setShowAddServer(!showAddServer)}
           className="glossy-button-primary flex items-center gap-2 mb-4"
@@ -1004,42 +1033,146 @@ function SettingsTab({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Refresh Settings */}
-      <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Refresh Settings</h3>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="auto_refresh"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <label htmlFor="auto_refresh" className="text-white">Auto Refresh</label>
-          </div>
-          <div>
-            <label className="text-sm text-navy-300 block mb-2">Refresh Interval (seconds)</label>
-            <input
-              type="number"
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
-              className="glossy-input w-full"
-              min="1"
-              max="60"
-            />
-          </div>
+// Ollama Tab Component
+function OllamaTab({ serverName, API_BASE }) {
+  const [ollamaData, setOllamaData] = useState(null);
+  const [historicalData, setHistoricalData] = useState(null);
+  const [timeRange, setTimeRange] = useState(1);
+
+  useEffect(() => {
+    fetchOllamaData();
+  }, [serverName]);
+
+  useEffect(() => {
+    fetchHistoricalData();
+  }, [timeRange, serverName]);
+
+  const fetchOllamaData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/ollama/current`, {
+        params: { server_name: serverName }
+      });
+      setOllamaData(response.data);
+    } catch (error) {
+      console.error('Error fetching Ollama data:', error);
+    }
+  };
+
+  const fetchHistoricalData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/ollama/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      setHistoricalData(response.data.metrics);
+    } catch (error) {
+      console.error('Error fetching historical Ollama data:', error);
+    }
+  };
+
+  const exportOllamaData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/ollama/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      
+      let csv = 'Timestamp,Model,Requests,Input Tokens,Output Tokens,Total Tokens\n';
+      if (response.data.metrics) {
+        response.data.metrics.forEach(m => {
+          csv += `${m.timestamp},${m.model},${m.requests},${m.input_tokens},${m.output_tokens},${m.total_tokens}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ollama-metrics-${timeRange}hrs-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting Ollama data:', error);
+      alert('Failed to export Ollama data');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-white">Ollama LLM Monitoring</h2>
+      
+      <div className="glossy-card p-4 flex gap-4 items-center">
+        <div className="flex-1">
+          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(parseInt(e.target.value))}
+            className="glossy-input w-full"
+          >
+            <option value={1}>Last 1 Hour</option>
+            <option value={6}>Last 6 Hours</option>
+            <option value={24}>Last 24 Hours</option>
+            <option value={48}>Last 48 Hours</option>
+          </select>
         </div>
-      </div>
-
-      {/* Data Management */}
-      <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
-        <button onClick={onCleanup} className="glossy-button">
-          🧹 Cleanup Old Data
+        <button
+          onClick={exportOllamaData}
+          className="glossy-button flex items-center gap-2 mt-6"
+        >
+          <Download className="w-4 h-4" />
+          Export
         </button>
       </div>
+      
+      {ollamaData && ollamaData.models ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ollamaData.models.map((model, idx) => (
+              <div key={idx} className="glossy-card p-6">
+                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                  Model
+                </div>
+                <div className="text-xl font-bold text-white mb-4">{model.name}</div>
+                <div className="space-y-2 text-sm text-navy-200">
+                  <div>Requests: {model.requests}</div>
+                  <div>Input Tokens: {model.input_tokens}</div>
+                  <div>Output Tokens: {model.output_tokens}</div>
+                  <div>Total Tokens: {model.total_tokens}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Historical Graph */}
+          {historicalData && historicalData.length > 0 && (
+            <div className="glossy-card p-6 mt-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Token Generation History</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={historicalData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    stroke="#94a3b8"
+                    tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                  />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="input_tokens" stroke="#3b82f6" name="Input Tokens" />
+                  <Line type="monotone" dataKey="output_tokens" stroke="#10b981" name="Output Tokens" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="glossy-card p-6 text-navy-200">Unable to retrieve Ollama metrics</div>
+      )}
     </div>
   );
 }

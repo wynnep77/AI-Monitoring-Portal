@@ -89,27 +89,43 @@ def apply_updates():
         logger.error(f"Failed to pull updates: {stderr}")
         return False
     
-    logger.info("Successfully pulled updates")
+    logger.info("✅ Successfully pulled updates from GitHub")
+    logger.info(f"Updated output:\n{stdout}")
     return True
 
 def restart_application():
-    """Restart the application using Docker Compose"""
+    """Restart the application using Docker Compose or native deployment"""
     logger.info("Restarting application...")
     
-    # Stop the container
-    returncode, stdout, stderr = run_command("docker-compose down", cwd=REPO_DIR)
-    if returncode != 0:
-        logger.error(f"Failed to stop container: {stderr}")
-        return False
-    
-    # Rebuild and start
-    returncode, stdout, stderr = run_command("docker-compose up -d --build", cwd=REPO_DIR)
-    if returncode != 0:
-        logger.error(f"Failed to start container: {stderr}")
-        return False
-    
-    logger.info("Application restarted successfully")
-    return True
+    # Check if docker-compose.yml exists (Docker deployment)
+    if (REPO_DIR / "docker-compose.yml").exists():
+        logger.info("Detected Docker deployment, restarting containers...")
+        
+        # Stop the container
+        returncode, stdout, stderr = run_command("docker-compose down", cwd=REPO_DIR)
+        if returncode != 0:
+            logger.error(f"Failed to stop container: {stderr}")
+            return False
+        
+        # Rebuild and start
+        returncode, stdout, stderr = run_command("docker-compose up -d --build", cwd=REPO_DIR)
+        if returncode != 0:
+            logger.error(f"Failed to start container: {stderr}")
+            return False
+        
+        logger.info("✅ Docker application restarted successfully")
+        return True
+    else:
+        # Native deployment - restart systemd service
+        logger.info("Detected native deployment, restarting systemd service...")
+        
+        returncode, stdout, stderr = run_command("sudo systemctl restart gpu-monitor-native")
+        if returncode != 0:
+            logger.error(f"Failed to restart native service: {stderr}")
+            return False
+        
+        logger.info("✅ Native application restarted successfully")
+        return True
 
 def update_loop():
     """Main update loop"""
@@ -118,15 +134,18 @@ def update_loop():
     while True:
         try:
             if check_for_updates():
-                logger.info("Updates detected, applying...")
+                logger.info("🔄 Updates detected, applying...")
                 if apply_updates():
-                    logger.info("Updates applied successfully, restarting application...")
+                    logger.info("🔄 Updates applied successfully, restarting application...")
                     if restart_application():
-                        logger.info("Update cycle completed successfully")
+                        logger.info("✅ Update cycle completed successfully")
+                        logger.info("🎉 Repository has been updated and application restarted!")
                     else:
-                        logger.error("Failed to restart application after update")
+                        logger.error("❌ Failed to restart application after update")
                 else:
-                    logger.error("Failed to apply updates")
+                    logger.error("❌ Failed to apply updates")
+            else:
+                logger.info("✅ Repository is up to date")
             
             # Wait for next check
             time.sleep(CHECK_INTERVAL)

@@ -32,24 +32,6 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 
 ### Docker Deployment (Recommended)
 
-#### Windows Deployment
-
-1. Clone the repository:
-```bash
-git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
-cd AI-Monitoring-Portal
-```
-
-2. Run the deployment script:
-```powershell
-.\deploy-react.ps1
-```
-
-3. Access the dashboard at `http://localhost:3000`
-4. Access the API documentation at `http://localhost:8000/docs`
-
-#### Ubuntu Deployment
-
 1. Clone the repository:
 ```bash
 git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
@@ -82,6 +64,42 @@ docker-compose logs -f
 
 # Stop containers
 docker-compose down
+```
+
+### Native Deployment (No Docker)
+
+This method runs the application directly on the host system without Docker. It provides direct GPU access and is simpler to troubleshoot.
+
+1. Clone the repository:
+```bash
+git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
+cd AI-Monitoring-Portal
+```
+
+2. Run the native deployment script:
+```bash
+chmod +x deploy-native.sh
+sudo ./deploy-native.sh
+```
+
+3. The service will start automatically. Access the dashboard at `http://localhost:3000`
+
+**Service management:**
+```bash
+# Check status
+sudo systemctl status gpu-monitor-native
+
+# View logs
+sudo journalctl -u gpu-monitor-native -f
+
+# Stop
+sudo systemctl stop gpu-monitor-native
+
+# Start
+sudo systemctl start gpu-monitor-native
+
+# Restart
+sudo systemctl restart gpu-monitor-native
 ```
 
 ### Local Development
@@ -223,9 +241,10 @@ gpu-monitor-dashboard/
 ├── database.py                 # Database models
 ├── config.py                   # Configuration settings
 ├── docker-compose.yml          # Docker Compose configuration
-├── deploy-react.sh            # Linux deployment script
-├── deploy-react.ps1           # Windows deployment script
+├── deploy-react.sh            # Docker deployment script
+├── deploy-native.sh           # Native deployment script
 ├── install-ubuntu.sh          # Ubuntu installation script
+├── cleanup.sh                 # Cleanup script
 └── README.md                  # This file
 ```
 

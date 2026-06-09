@@ -65,9 +65,73 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "gpu_monitor_initialized": gpu_monitor.initialized,
-        "gpu_monitor_smi_fallback": gpu_monitor.use_smi_fallback if hasattr(gpu_monitor, 'use_smi_fallback') else False
+        "gpu_monitor_initialized": gpu_monitor.initialized if gpu_monitor else False,
+        "gpu_monitor_smi_fallback": gpu_monitor.use_smi_fallback if gpu_monitor and hasattr(gpu_monitor, 'use_smi_fallback') else False,
+        "cpu_monitor_available": cpu_monitor is not None,
+        "storage_monitor_available": storage_monitor is not None
     }
+
+@app.get("/api/diagnostics")
+async def get_diagnostics():
+    """Get diagnostic information about monitoring system"""
+    diagnostics = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "monitors": {},
+        "environment": {}
+    }
+    
+    # GPU Monitor diagnostics
+    if gpu_monitor:
+        diagnostics["monitors"]["gpu"] = {
+            "initialized": gpu_monitor.initialized,
+            "init_error": gpu_monitor.init_error if hasattr(gpu_monitor, 'init_error') else None,
+            "use_smi_fallback": gpu_monitor.use_smi_fallback if hasattr(gpu_monitor, 'use_smi_fallback') else False
+        }
+        try:
+            gpu_info = gpu_monitor.get_all_gpu_info("localhost")
+            diagnostics["monitors"]["gpu"]["test_result"] = "success" if gpu_info else "no_gpus"
+            diagnostics["monitors"]["gpu"]["gpu_count"] = len(gpu_info) if gpu_info else 0
+        except Exception as e:
+            diagnostics["monitors"]["gpu"]["test_result"] = f"error: {str(e)}"
+    else:
+        diagnostics["monitors"]["gpu"] = {"status": "not_initialized"}
+    
+    # CPU Monitor diagnostics
+    if cpu_monitor:
+        try:
+            cpu_info = cpu_monitor.get_cpu_info("localhost")
+            diagnostics["monitors"]["cpu"] = {
+                "test_result": "success" if cpu_info else "no_data",
+                "data": cpu_info
+            }
+        except Exception as e:
+            diagnostics["monitors"]["cpu"] = {"test_result": f"error: {str(e)}"}
+    else:
+        diagnostics["monitors"]["cpu"] = {"status": "not_initialized"}
+    
+    # Storage Monitor diagnostics
+    if storage_monitor:
+        try:
+            storage_info = storage_monitor.get_storage_info("localhost")
+            diagnostics["monitors"]["storage"] = {
+                "test_result": "success" if storage_info else "no_data",
+                "volume_count": len(storage_info) if storage_info else 0
+            }
+        except Exception as e:
+            diagnostics["monitors"]["storage"] = {"test_result": f"error: {str(e)}"}
+    else:
+        diagnostics["monitors"]["storage"] = {"status": "not_initialized"}
+    
+    # Environment diagnostics
+    import os
+    diagnostics["environment"] = {
+        "host_proc": os.getenv('HOST_PROC'),
+        "host_sys": os.getenv('HOST_SYS'),
+        "nvidia_visible_devices": os.getenv('NVIDIA_VISIBLE_DEVICES'),
+        "nvidia_driver_capabilities": os.getenv('NVIDIA_DRIVER_CAPABILITIES')
+    }
+    
+    return diagnostics
 
 # Server Management Endpoints
 @app.get("/api/servers")

@@ -1,6 +1,6 @@
 # GPU Monitor Dashboard
 
-A comprehensive web-based monitoring application for real-time GPU, CPU, and storage performance tracking. Built with Streamlit and designed with a clean VMware vCenter-inspired interface.
+A comprehensive web-based monitoring application for real-time GPU, CPU, and storage performance tracking. Built with React and FastAPI, featuring a professional Navy and White glossy UI.
 
 ## Features
 
@@ -9,7 +9,8 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 - **Storage Performance**: Track disk usage and I/O operations across all mounted filesystems
 - **Multi-Server Support**: Add and monitor multiple servers from a single dashboard
 - **Historical Data**: Store performance data for up to 1 year with configurable sampling rates
-- **Clean UI**: VMware vCenter-inspired interface with real-time charts and metrics
+- **Professional UI**: Navy and White glossy theme with modern React components
+- **RESTful API**: FastAPI backend with automatic API documentation
 - **Docker Deployment**: Fully containerized deployment with automated setup scripts
 - **Auto-Update Agent**: Automatically checks for and applies updates from GitHub
 
@@ -23,14 +24,13 @@ A comprehensive web-based monitoring application for real-time GPU, CPU, and sto
 ## Prerequisites
 
 - NVIDIA GPU with drivers installed
-- Python 3.8 or higher
-- pip (Python package manager)
-- For Docker deployment: Docker Desktop (Windows) or Docker + Docker Compose (Ubuntu)
-- For native deployment: Only Python and pip required
+- Docker and Docker Compose (for containerized deployment)
+- Node.js 18+ (for local frontend development)
+- Python 3.8+ (for local backend development)
 
 ## Quick Start
 
-### Option 1: Docker Deployment (Recommended for production)
+### Docker Deployment (Recommended)
 
 #### Windows Deployment
 
@@ -42,10 +42,11 @@ cd AI-Monitoring-Portal
 
 2. Run the deployment script:
 ```powershell
-.\deploy.ps1
+.\deploy-react.ps1
 ```
 
-3. Access the dashboard at `http://localhost:8000`
+3. Access the dashboard at `http://localhost:3000`
+4. Access the API documentation at `http://localhost:8000/docs`
 
 #### Ubuntu Deployment
 
@@ -63,125 +64,92 @@ sudo ./install-ubuntu.sh
 
 3. Run the deployment script:
 ```bash
-chmod +x deploy.sh
-./deploy.sh
+chmod +x deploy-react.sh
+./deploy-react.sh
 ```
 
-4. Access the dashboard at `http://localhost:8000`
+4. Access the dashboard at `http://localhost:3000`
+5. Access the API documentation at `http://localhost:8000/docs`
 
-### Option 2: Native Python Deployment (No Docker)
+### Manual Docker Deployment
 
-This method runs the application directly on the host system without Docker. It provides direct GPU access and is simpler to troubleshoot.
-
-#### Windows Native Deployment
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
-cd AI-Monitoring-Portal
-```
-
-2. Run the native deployment script:
-```powershell
-.\deploy-native.ps1
-```
-
-3. Start the dashboard:
-```powershell
-.\start-dashboard.bat
-```
-
-4. Access the dashboard at `http://localhost:8000`
-
-#### Ubuntu Native Deployment
-
-1. Clone the repository:
-```bash
-git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
-cd AI-Monitoring-Portal
-```
-
-2. Run the native deployment script:
-```bash
-chmod +x deploy-native.sh
-sudo ./deploy-native.sh
-```
-
-3. The service will start automatically. Access the dashboard at `http://localhost:8000`
-
-**Service management:**
-```bash
-# Check status
-sudo systemctl status gpu-monitor-native
+# Build and start containers
+docker-compose up -d --build
 
 # View logs
-sudo journalctl -u gpu-monitor-native -f
+docker-compose logs -f
 
-# Stop
-sudo systemctl stop gpu-monitor-native
-
-# Start
-sudo systemctl start gpu-monitor-native
-
-# Restart
-sudo systemctl restart gpu-monitor-native
+# Stop containers
+docker-compose down
 ```
 
-### Linux/Ubuntu Manual Deployment
+### Local Development
 
-If you already have Docker and NVIDIA Container Toolkit installed:
+#### Backend Development
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/wynnep77/AI-Monitoring-Portal.git
-cd AI-Monitoring-Portal
-```
-
-2. Make the deployment script executable:
-```bash
-chmod +x deploy.sh
-```
-
-3. Run the deployment script:
-```bash
-./deploy.sh
-```
-
-4. Access the dashboard at `http://localhost:8000`
-
-## Manual Deployment
-
-If you prefer manual deployment:
-
-1. Install dependencies:
-```bash
+cd backend
 pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-2. Configure environment:
-```bash
-cp .env.example .env
-```
-
-3. Run the application:
-```bash
-streamlit run app.py --server.port 8000
-```
-
-## Docker Deployment
-
-### Build and Run with Docker Compose
+#### Frontend Development
 
 ```bash
-docker-compose up -d
+cd frontend
+npm install
+npm start
 ```
 
-### Build and Run with Docker
+The frontend will be available at `http://localhost:3000` and will proxy API requests to `http://localhost:8000`.
 
-```bash
-docker build -t gpu-monitor-dashboard .
-docker run -d -p 8000:8000 --gpus all -v $(pwd)/data:/app/data gpu-monitor-dashboard
-```
+## Architecture
+
+The application is split into two main components:
+
+### Backend (FastAPI)
+- RESTful API for GPU, CPU, and Storage monitoring
+- Real-time metrics collection
+- Historical data storage and retrieval
+- Server management endpoints
+- Automatic API documentation via Swagger UI
+
+### Frontend (React)
+- Modern React application with Tailwind CSS
+- Navy and White glossy professional theme
+- Real-time data visualization
+- Server management interface
+- Responsive design
+
+## API Endpoints
+
+### Health & Status
+- `GET /` - API information
+- `GET /health` - Health check
+
+### Server Management
+- `GET /api/servers` - List all servers
+- `POST /api/servers` - Add new server
+- `DELETE /api/servers/{id}` - Delete server
+
+### GPU Monitoring
+- `GET /api/gpu/current` - Current GPU metrics
+- `GET /api/gpu/historical` - Historical GPU data
+
+### CPU Monitoring
+- `GET /api/cpu/current` - Current CPU metrics
+- `GET /api/cpu/historical` - Historical CPU data
+
+### Storage Monitoring
+- `GET /api/storage/current` - Current storage metrics
+- `GET /api/storage/historical` - Historical storage data
+
+### Data Management
+- `POST /api/data/cleanup` - Clean up old data
+
+### Overview
+- `GET /api/overview` - Combined overview of all metrics
 
 ## Configuration
 
@@ -197,8 +165,8 @@ Edit the `.env` file to customize:
 
 ### Adding a Server
 
-1. Click "Settings" in the sidebar
-2. Expand "Add New Server"
+1. Navigate to the "Settings" tab
+2. Click "Add New Server"
 3. Enter server details:
    - Server Name: A friendly name for the server
    - Host/IP: The server's hostname or IP address
@@ -208,12 +176,13 @@ Edit the `.env` file to customize:
 
 ### Monitoring Performance
 
-The dashboard provides four main tabs:
+The dashboard provides five main tabs:
 
 1. **Overview**: Quick summary of all system metrics
-2. **GPU Performance**: Detailed GPU metrics with historical charts
-3. **CPU Performance**: CPU and memory utilization with historical data
-4. **Storage Performance**: Disk usage and I/O metrics
+2. **GPU**: Detailed GPU metrics with historical data
+3. **CPU**: CPU and memory utilization with historical data
+4. **Storage**: Disk usage and I/O metrics
+5. **Settings**: Server management and configuration
 
 ### Historical Data
 
@@ -223,64 +192,41 @@ Select time ranges for historical data:
 - Last 24 Hours
 - Last 7 Days
 
-Data is automatically sampled at different rates based on age:
-- High frequency (5 seconds): Last 24 hours
-- Medium frequency (60 seconds): Last 7 days
-- Low frequency (300 seconds): Older than 7 days
-
 ### Data Cleanup
 
-Click "Cleanup Old Data" in the sidebar to remove data older than the retention period (default: 365 days).
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│         Streamlit Frontend               │
-│  ┌──────────┬──────────┬──────────────┐  │
-│  │ Overview │ GPU      │ CPU/Storage  │  │
-│  └──────────┴──────────┴──────────────┘  │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│         Monitoring Services              │
-│  • GPUMonitor (NVML)                     │
-│  • CPUMonitor (psutil)                   │
-│  • StorageMonitor (psutil)               │
-└─────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────┐
-│         SQLite Database                  │
-│  • GPU Metrics                           │
-│  • CPU Metrics                           │
-│  • Storage Metrics                       │
-│  • Monitored Servers                     │
-└─────────────────────────────────────────┘
-```
+Click "Cleanup Old Data" in the Settings tab to remove data older than the retention period (default: 365 days).
 
 ## Project Structure
 
 ```
 gpu-monitor-dashboard/
-├── app.py                      # Main Streamlit application
+├── backend/                    # FastAPI backend
+│   ├── main.py                # FastAPI application
+│   ├── requirements.txt       # Python dependencies
+│   ├── Dockerfile             # Backend Docker image
+│   └── monitors/              # Monitoring modules (shared)
+├── frontend/                   # React frontend
+│   ├── src/
+│   │   ├── App.js            # Main React component
+│   │   ├── index.js          # React entry point
+│   │   └── index.css         # Tailwind CSS styles
+│   ├── public/
+│   │   └── index.html        # HTML template
+│   ├── package.json          # Node.js dependencies
+│   ├── tailwind.config.js    # Tailwind configuration
+│   ├── Dockerfile            # Frontend Docker image
+│   └── nginx.conf            # Nginx configuration
+├── monitors/                   # Shared monitoring modules
+│   ├── gpu_monitor.py         # GPU monitoring
+│   ├── cpu_monitor.py         # CPU monitoring
+│   └── storage_monitor.py     # Storage monitoring
+├── database.py                 # Database models
 ├── config.py                   # Configuration settings
-├── database.py                 # Database models and operations
-├── requirements.txt            # Python dependencies
-├── Dockerfile                  # Docker image definition
 ├── docker-compose.yml          # Docker Compose configuration
-├── install-ubuntu.sh           # Ubuntu installation script
-├── deploy.sh                   # Linux deployment script
-├── deploy.ps1                  # Windows deployment script
-├── .env.example                # Environment variables template
-├── .streamlit/
-│   └── config.toml            # Streamlit configuration
-├── monitors/
-│   ├── __init__.py
-│   ├── gpu_monitor.py         # GPU monitoring service
-│   ├── cpu_monitor.py         # CPU monitoring service
-│   └── storage_monitor.py     # Storage monitoring service
-└── data/                      # Data directory (created at runtime)
-    └── monitoring.db           # SQLite database
+├── deploy-react.sh            # Linux deployment script
+├── deploy-react.ps1           # Windows deployment script
+├── install-ubuntu.sh          # Ubuntu installation script
+└── README.md                  # This file
 ```
 
 ## Troubleshooting
@@ -295,42 +241,45 @@ If the dashboard shows "No GPUs detected" but you have NVIDIA GPUs:
    ```
    This should show your GPU information.
 
-2. **Check NVIDIA Container Toolkit:**
+2. **Check backend container logs:**
+   ```bash
+   docker-compose logs backend
+   ```
+   Look for NVML initialization errors or nvidia-smi output.
+
+3. **Check NVIDIA Container Toolkit:**
    ```bash
    docker run --rm --gpus all nvidia/cuda:12.1.0-runtime-ubuntu22.04 nvidia-smi
    ```
    This should show GPU information from within a container.
 
-3. **Verify NVIDIA runtime is configured:**
+4. **Verify NVIDIA runtime is configured:**
    ```bash
    docker info | grep -i runtime
    ```
    You should see "nvidia" in the runtimes list.
 
-4. **Check container logs for GPU initialization errors:**
+5. **Test GPU access manually:**
    ```bash
-   docker-compose logs gpu-monitor
-   ```
-   Look for NVML initialization errors or nvidia-smi output.
-
-5. **For Docker Compose users:**
-   - Ensure `runtime: nvidia` is set in docker-compose.yml
-   - If using Docker Swarm, use the deploy resources section instead
-   - Restart the container after changes:
-     ```bash
-     docker-compose down
-     docker-compose up -d
-     ```
-
-6. **Test GPU access manually:**
-   ```bash
-   docker exec -it gpu-monitor-dashboard nvidia-smi
+   docker exec -it gpu-monitor-backend nvidia-smi
    ```
 
-7. **For Windows users:**
-   - Ensure WSL2 is properly configured
-   - Check Docker Desktop GPU settings are enabled
-   - Verify NVIDIA WSL drivers are installed
+### Frontend Not Connecting to Backend
+
+1. **Check if backend is running:**
+   ```bash
+   docker-compose ps
+   ```
+
+2. **Check backend logs:**
+   ```bash
+   docker-compose logs backend
+   ```
+
+3. **Verify API is accessible:**
+   ```bash
+   curl http://localhost:8000/health
+   ```
 
 ### Database Errors
 
@@ -340,150 +289,14 @@ If the dashboard shows "No GPUs detected" but you have NVIDIA GPUs:
 
 ### Port Already in Use
 
-If port 8000 is already in use, modify the port in:
-- `docker-compose.yml` (ports section)
-- `.streamlit/config.toml` (server.port)
-- Or stop the conflicting service
+If ports 3000 or 8000 are already in use, modify the ports in `docker-compose.yml`.
 
 ### High Memory Usage
 
 If the database grows too large:
 - Reduce `DATA_RETENTION_DAYS` in `.env`
-- Run "Cleanup Old Data" from the sidebar
+- Run "Cleanup Old Data" from the Settings tab
 - Adjust sampling rates in configuration
-
-## Development
-
-### Running in Development Mode
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the application
-streamlit run app.py
-```
-
-### Adding New Monitors
-
-1. Create a new monitor class in `monitors/`
-2. Implement `collect_metrics()` and `get_historical_metrics()` methods
-3. Add database model in `database.py`
-4. Integrate into `app.py`
-
-## Auto-Update Agent
-
-The GPU Monitor Dashboard includes an auto-update agent that automatically checks for updates from GitHub and applies them.
-
-### Features
-
-- Automatically checks for updates every hour (configurable)
-- Pulls latest changes from GitHub
-- Restarts the application with the new version
-- Logs all update activities
-- Runs as a system service (Linux) or scheduled task (Windows)
-
-### Installation
-
-#### Ubuntu/Linux
-
-```bash
-# Install the update agent as a systemd service
-sudo chmod +x install-update-agent.sh
-sudo ./install-update-agent.sh
-```
-
-The agent will:
-- Install as a systemd service named `gpu-monitor-update-agent`
-- Start automatically on system boot
-- Check for updates every hour (configurable via `UPDATE_CHECK_INTERVAL` environment variable)
-
-#### Windows
-
-```powershell
-# Install the update agent as a scheduled task
-.\install-update-agent.ps1
-```
-
-The agent will:
-- Install as a Windows Scheduled Task named `GPU-Monitor-Update-Agent`
-- Run with SYSTEM privileges
-- Check for updates every hour
-
-### Configuration
-
-The update check interval can be configured by setting the `UPDATE_CHECK_INTERVAL` environment variable (in seconds):
-
-**Linux (systemd):**
-Edit `/etc/systemd/system/gpu-monitor-update-agent.service` and modify:
-```
-Environment="UPDATE_CHECK_INTERVAL=3600"
-```
-Then reload: `sudo systemctl daemon-reload && sudo systemctl restart gpu-monitor-update-agent`
-
-**Windows:**
-Modify the trigger interval in the scheduled task settings or edit the `install-update-agent.ps1` script before installation.
-
-### Management
-
-#### Linux
-
-```bash
-# Check service status
-sudo systemctl status gpu-monitor-update-agent
-
-# View logs
-sudo journalctl -u gpu-monitor-update-agent -f
-
-# Stop the service
-sudo systemctl stop gpu-monitor-update-agent
-
-# Start the service
-sudo systemctl start gpu-monitor-update-agent
-
-# Disable the service
-sudo systemctl disable gpu-monitor-update-agent
-
-# Enable the service
-sudo systemctl enable gpu-monitor-update-agent
-```
-
-#### Windows
-
-```powershell
-# Check task status
-Get-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
-
-# View task history
-Get-ScheduledTaskInfo -TaskName 'GPU-Monitor-Update-Agent'
-
-# Stop the task
-Stop-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
-
-# Start the task
-Start-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent'
-
-# Remove the task
-Unregister-ScheduledTask -TaskName 'GPU-Monitor-Update-Agent' -Confirm:$false
-```
-
-### Manual Update
-
-To manually trigger an update check:
-
-```bash
-# Run the update agent manually
-python3 update_agent.py
-```
-
-The agent will check for updates, apply them if available, and restart the application.
-
-### Logs
-
-Update agent logs are stored in:
-- **Linux**: Systemd journal (`journalctl -u gpu-monitor-update-agent`)
-- **Windows**: `update_agent.log` in the application directory
-- **Both**: `update_agent.log` in the application directory (when run manually)
 
 ## License
 

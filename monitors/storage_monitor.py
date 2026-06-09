@@ -1,11 +1,18 @@
 import psutil
+import os
 from datetime import datetime
 from typing import List, Dict
 from database import StorageMetric, get_db
 
 class StorageMonitor:
     def __init__(self):
-        pass
+        # Configure psutil to use host proc/sys if running in Docker
+        host_proc = os.getenv('HOST_PROC')
+        host_sys = os.getenv('HOST_SYS')
+        if host_proc:
+            psutil.PROCFS_PATH = host_proc
+        if host_sys:
+            psutil.SYSFS_PATH = host_sys
     
     def get_storage_info(self, server_name: str = "localhost") -> List[Dict]:
         """Get current storage information for all mounted filesystems"""

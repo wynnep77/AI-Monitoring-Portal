@@ -51,7 +51,7 @@ chmod +x deploy-react.sh
 ```
 
 4. Access the dashboard at `http://localhost:3000`
-5. Access the API documentation at `http://localhost:8000/docs`
+5. Access the API documentation at `http://localhost:8001/docs` (or the port shown in deployment output)
 
 ### Manual Docker Deployment
 

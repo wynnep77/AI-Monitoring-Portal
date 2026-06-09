@@ -27,6 +27,33 @@ fi
 
 echo "✅ Docker Compose is installed"
 
+# Function to check if a port is available
+is_port_available() {
+    local port=$1
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+# Find available backend port starting from 8001
+BACKEND_PORT=8001
+while ! is_port_available $BACKEND_PORT; do
+    echo "⚠️  Port $BACKEND_PORT is in use, trying next port..."
+    BACKEND_PORT=$((BACKEND_PORT + 1))
+    if [ $BACKEND_PORT -gt 8100 ]; then
+        echo "❌ Could not find available port in range 8001-8100"
+        exit 1
+    fi
+done
+
+echo "✅ Using backend port: $BACKEND_PORT"
+
+# Update docker-compose.yml with the available port
+sed -i "s/\"8001:8000\"/\"$BACKEND_PORT:8000\"/g" docker-compose.yml
+sed -i "s/REACT_APP_API_URL=http:\/\/localhost:8001/REACT_APP_API_URL=http:\/\/localhost:$BACKEND_PORT/g" docker-compose.yml
+
 # Create data directory
 if [ ! -d "data" ]; then
     echo "📁 Creating data directory..."
@@ -49,8 +76,8 @@ echo "=========================================="
 echo ""
 echo "The dashboard is now running:"
 echo "🌐 Frontend: http://localhost:3000"
-echo "🔧 Backend API: http://localhost:8000"
-echo "📚 API Docs: http://localhost:8000/docs"
+echo "🔧 Backend API: http://localhost:$BACKEND_PORT"
+echo "📚 API Docs: http://localhost:$BACKEND_PORT/docs"
 echo ""
 echo "To view logs:"
 echo "   docker-compose logs -f"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './index.css';
 
 // Use empty base URL since nginx proxies /api to backend
@@ -18,6 +19,7 @@ function App() {
   const [testMode, setTestMode] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [apiStatus, setApiStatus] = useState('Unknown');
+  const [exportPeriod, setExportPeriod] = useState(1);
 
   // Fetch servers
   const fetchServers = async () => {
@@ -94,6 +96,51 @@ function App() {
     }
   };
 
+  // Export all metrics to CSV
+  const exportAllMetrics = async () => {
+    try {
+      const [gpuData, cpuData, storageData] = await Promise.all([
+        axios.get(`${API_BASE}/api/gpu/historical`, { params: { server_name: selectedServer, hours: exportPeriod } }),
+        axios.get(`${API_BASE}/api/cpu/historical`, { params: { server_name: selectedServer, hours: exportPeriod } }),
+        axios.get(`${API_BASE}/api/storage/historical`, { params: { server_name: selectedServer, hours: exportPeriod } })
+      ]);
+
+      let csv = 'Type,Timestamp,Server,Value1,Value2,Value3,Value4,Value5\n';
+      
+      // GPU data
+      if (gpuData.data.metrics) {
+        gpuData.data.metrics.forEach(m => {
+          csv += `GPU,${m.timestamp},${selectedServer},${m.gpu_id},${m.utilization},${m.memory_used},${m.memory_total},${m.temperature},${m.power_usage}\n`;
+        });
+      }
+      
+      // CPU data
+      if (cpuData.data.metrics) {
+        cpuData.data.metrics.forEach(m => {
+          csv += `CPU,${m.timestamp},${selectedServer},${m.cpu_percent},${m.memory_percent},${m.memory_used},${m.memory_total},${m.load_avg_1m},${m.load_avg_5m}\n`;
+        });
+      }
+      
+      // Storage data
+      if (storageData.data.metrics) {
+        storageData.data.metrics.forEach(m => {
+          csv += `Storage,${m.timestamp},${selectedServer},${m.device},${m.total},${m.used},${m.free},${m.percent},${m.read_bytes}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all-metrics-${exportPeriod}hrs-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting metrics:', error);
+      alert('Failed to export metrics');
+    }
+  };
+
   // Initial load
   useEffect(() => {
     fetchServers();
@@ -121,6 +168,23 @@ function App() {
               <div className={`text-sm px-3 py-1 rounded ${apiStatus === 'Connected' ? 'bg-green-600' : apiStatus === 'Error' ? 'bg-red-600' : 'bg-gray-600'}`}>
                 API: {apiStatus}
               </div>
+              <select
+                value={exportPeriod}
+                onChange={(e) => setExportPeriod(parseInt(e.target.value))}
+                className="glossy-button px-3 py-1"
+              >
+                <option value={1}>1h</option>
+                <option value={6}>6h</option>
+                <option value={24}>24h</option>
+                <option value={48}>48h</option>
+              </select>
+              <button
+                onClick={exportAllMetrics}
+                className="glossy-button flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export All
+              </button>
               <button
                 onClick={() => setTestMode(!testMode)}
                 className={`glossy-button flex items-center gap-2 ${testMode ? 'bg-yellow-600' : ''}`}
@@ -354,11 +418,17 @@ function GPUTab({ serverName, API_BASE }) {
   const [gpuData, setGpuData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
   const [selectedGpu, setSelectedGpu] = useState(null);
-  const [timeRange, setTimeRange] = useState(24);
+  const [timeRange, setTimeRange] = useState(1); // Default to 1 hour
 
   useEffect(() => {
     fetchGpuData();
   }, [serverName]);
+
+  useEffect(() => {
+    if (selectedGpu !== null) {
+      fetchHistoricalData();
+    }
+  }, [selectedGpu, timeRange, serverName]);
 
   const fetchGpuData = async () => {
     try {
@@ -386,16 +456,38 @@ function GPUTab({ serverName, API_BASE }) {
     }
   };
 
-  useEffect(() => {
-    fetchHistoricalData();
-  }, [selectedGpu, timeRange]);
+  const exportGpuData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/gpu/historical`, {
+        params: { server_name: serverName, gpu_id: selectedGpu, hours: timeRange }
+      });
+      
+      let csv = 'Timestamp,GPU ID,Name,Utilization,Memory Used,Memory Total,Temperature,Power Usage,Fan Speed\n';
+      if (response.data.metrics) {
+        response.data.metrics.forEach(m => {
+          csv += `${m.timestamp},${m.gpu_id},${m.gpu_name},${m.utilization},${m.memory_used},${m.memory_total},${m.temperature},${m.power_usage},${m.fan_speed}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gpu-metrics-${timeRange}hrs-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting GPU data:', error);
+      alert('Failed to export GPU data');
+    }
+  };
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">GPU Performance</h2>
       
       {gpuData && gpuData.gpus && gpuData.gpus.length > 0 ? (
-        <>
+        <div>
           <div className="glossy-card p-4">
             <label className="text-sm text-navy-300 block mb-2">Select GPU</label>
             <select
@@ -411,66 +503,102 @@ function GPUTab({ serverName, API_BASE }) {
             </select>
           </div>
 
-          <div className="glossy-card p-4">
-            <label className="text-sm text-navy-300 block mb-2">Time Range</label>
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(parseInt(e.target.value))}
-              className="glossy-input w-full"
+          <div className="glossy-card p-4 flex gap-4 items-center">
+            <div className="flex-1">
+              <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(parseInt(e.target.value))}
+                className="glossy-input w-full"
+              >
+                <option value={1}>Last 1 Hour</option>
+                <option value={6}>Last 6 Hours</option>
+                <option value={24}>Last 24 Hours</option>
+                <option value={48}>Last 48 Hours</option>
+              </select>
+            </div>
+            <button
+              onClick={exportGpuData}
+              className="glossy-button flex items-center gap-2 mt-6"
             >
-              <option value={1}>Last 1 Hour</option>
-              <option value={6}>Last 6 Hours</option>
-              <option value={24}>Last 24 Hours</option>
-              <option value={168}>Last 7 Days</option>
-            </select>
+              <Download className="w-4 h-4" />
+              Export
+            </button>
           </div>
 
           {selectedGpu !== null && (
-            <div className="glossy-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                GPU {selectedGpu} Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-sm text-navy-300">GPU Name</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.gpu_name}
+            <div>
+              <div className="glossy-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  GPU {selectedGpu} Details
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm text-navy-300">GPU Name</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.gpu_name}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-navy-300">Utilization</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.utilization}%
+                  <div>
+                    <div className="text-sm text-navy-300">Utilization</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.utilization}%
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-navy-300">Memory Used</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_used.toFixed(2)} GB
+                  <div>
+                    <div className="text-sm text-navy-300">Memory Used</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_used.toFixed(2)} GB
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-navy-300">Memory Total</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_total.toFixed(2)} GB
+                  <div>
+                    <div className="text-sm text-navy-300">Memory Total</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_total.toFixed(2)} GB
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-navy-300">Temperature</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.temperature}°C
+                  <div>
+                    <div className="text-sm text-navy-300">Temperature</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.temperature}°C
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm text-navy-300">Power Usage</div>
-                  <div className="text-white font-medium">
-                    {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.power_usage.toFixed(2)} W
+                  <div>
+                    <div className="text-sm text-navy-300">Power Usage</div>
+                    <div className="text-white font-medium">
+                      {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.power_usage.toFixed(2)} W
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Historical Graph */}
+              {historicalData && historicalData.length > 0 && (
+                <div className="glossy-card p-6 mt-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">GPU Utilization History</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={historicalData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                      <XAxis 
+                        dataKey="timestamp" 
+                        stroke="#94a3b8"
+                        tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                      />
+                      <YAxis stroke="#94a3b8" />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
+                        labelStyle={{ color: '#e2e8f0' }}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="utilization" stroke="#3b82f6" name="Utilization %" />
+                      <Line type="monotone" dataKey="temperature" stroke="#ef4444" name="Temperature °C" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           )}
-        </>
+        </div>
       ) : (
         <div className="glossy-card p-6 text-navy-200">No GPUs detected</div>
       )}
@@ -481,10 +609,16 @@ function GPUTab({ serverName, API_BASE }) {
 // CPU Tab Component
 function CPUTab({ serverName, API_BASE }) {
   const [cpuData, setCpuData] = useState(null);
+  const [historicalData, setHistoricalData] = useState(null);
+  const [timeRange, setTimeRange] = useState(1);
 
   useEffect(() => {
     fetchCpuData();
   }, [serverName]);
+
+  useEffect(() => {
+    fetchHistoricalData();
+  }, [timeRange, serverName]);
 
   const fetchCpuData = async () => {
     try {
@@ -497,43 +631,130 @@ function CPUTab({ serverName, API_BASE }) {
     }
   };
 
+  const fetchHistoricalData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/cpu/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      setHistoricalData(response.data.metrics);
+    } catch (error) {
+      console.error('Error fetching historical CPU data:', error);
+    }
+  };
+
+  const exportCpuData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/cpu/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      
+      let csv = 'Timestamp,CPU Percent,Memory Percent,Memory Used,Memory Total,Load 1m,Load 5m,Load 15m\n';
+      if (response.data.metrics) {
+        response.data.metrics.forEach(m => {
+          csv += `${m.timestamp},${m.cpu_percent},${m.memory_percent},${m.memory_used},${m.memory_total},${m.load_avg_1m},${m.load_avg_5m},${m.load_avg_15m}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cpu-metrics-${timeRange}hrs-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting CPU data:', error);
+      alert('Failed to export CPU data');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">CPU Performance</h2>
       
-      {cpuData ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="glossy-card p-6">
-            <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-              CPU Cores
-            </div>
-            <div className="text-3xl font-bold text-white">{cpuData.cpu_count}</div>
-          </div>
-          <div className="glossy-card p-6">
-            <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-              CPU Usage
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {cpuData.cpu_percent.toFixed(1)}%
-            </div>
-          </div>
-          <div className="glossy-card p-6">
-            <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-              Memory Used
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {cpuData.memory_used.toFixed(2)} GB
-            </div>
-          </div>
-          <div className="glossy-card p-6">
-            <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-              Memory Total
-            </div>
-            <div className="text-3xl font-bold text-white">
-              {cpuData.memory_total.toFixed(2)} GB
-            </div>
-          </div>
+      <div className="glossy-card p-4 flex gap-4 items-center">
+        <div className="flex-1">
+          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(parseInt(e.target.value))}
+            className="glossy-input w-full"
+          >
+            <option value={1}>Last 1 Hour</option>
+            <option value={6}>Last 6 Hours</option>
+            <option value={24}>Last 24 Hours</option>
+            <option value={48}>Last 48 Hours</option>
+          </select>
         </div>
+        <button
+          onClick={exportCpuData}
+          className="glossy-button flex items-center gap-2 mt-6"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </button>
+      </div>
+      
+      {cpuData ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="glossy-card p-6">
+              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                CPU Cores
+              </div>
+              <div className="text-3xl font-bold text-white">{cpuData.cpu_count}</div>
+            </div>
+            <div className="glossy-card p-6">
+              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                CPU Usage
+              </div>
+              <div className="text-3xl font-bold text-white">
+                {cpuData.cpu_percent.toFixed(1)}%
+              </div>
+            </div>
+            <div className="glossy-card p-6">
+              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                Memory Used
+              </div>
+              <div className="text-3xl font-bold text-white">
+                {cpuData.memory_used.toFixed(2)} GB
+              </div>
+            </div>
+            <div className="glossy-card p-6">
+              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                Memory Total
+              </div>
+              <div className="text-3xl font-bold text-white">
+                {cpuData.memory_total.toFixed(2)} GB
+              </div>
+            </div>
+          </div>
+
+          {/* Historical Graph */}
+          {historicalData && historicalData.length > 0 && (
+            <div className="glossy-card p-6 mt-4">
+              <h3 className="text-lg font-semibold text-white mb-4">CPU Utilization History</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={historicalData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    stroke="#94a3b8"
+                    tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                  />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="cpu_percent" stroke="#3b82f6" name="CPU %" />
+                  <Line type="monotone" dataKey="memory_percent" stroke="#10b981" name="Memory %" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
       ) : (
         <div className="glossy-card p-6 text-navy-200">Unable to retrieve CPU metrics</div>
       )}
@@ -544,10 +765,16 @@ function CPUTab({ serverName, API_BASE }) {
 // Storage Tab Component
 function StorageTab({ serverName, API_BASE }) {
   const [storageData, setStorageData] = useState(null);
+  const [historicalData, setHistoricalData] = useState(null);
+  const [timeRange, setTimeRange] = useState(1);
 
   useEffect(() => {
     fetchStorageData();
   }, [serverName]);
+
+  useEffect(() => {
+    fetchHistoricalData();
+  }, [timeRange, serverName]);
 
   const fetchStorageData = async () => {
     try {
@@ -560,29 +787,115 @@ function StorageTab({ serverName, API_BASE }) {
     }
   };
 
+  const fetchHistoricalData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/storage/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      setHistoricalData(response.data.metrics);
+    } catch (error) {
+      console.error('Error fetching historical storage data:', error);
+    }
+  };
+
+  const exportStorageData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/api/storage/historical`, {
+        params: { server_name: serverName, hours: timeRange }
+      });
+      
+      let csv = 'Timestamp,Device,Mountpoint,Total,Used,Free,Percent,Read Bytes,Write Bytes\n';
+      if (response.data.metrics) {
+        response.data.metrics.forEach(m => {
+          csv += `${m.timestamp},${m.device},${m.mountpoint},${m.total},${m.used},${m.free},${m.percent},${m.read_bytes},${m.write_bytes}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `storage-metrics-${timeRange}hrs-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting storage data:', error);
+      alert('Failed to export storage data');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">Storage Performance</h2>
       
-      {storageData && storageData.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {storageData.map((storage, idx) => (
-            <div key={idx} className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
-                {storage.device}
-              </div>
-              <div className="text-lg font-semibold text-white mb-2">
-                {storage.mountpoint}
-              </div>
-              <div className="text-3xl font-bold text-white mb-2">
-                {storage.percent.toFixed(1)}%
-              </div>
-              <div className="text-sm text-navy-200">
-                {storage.used.toFixed(1)} GB used of {storage.total.toFixed(1)} GB
-              </div>
-            </div>
-          ))}
+      <div className="glossy-card p-4 flex gap-4 items-center">
+        <div className="flex-1">
+          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(parseInt(e.target.value))}
+            className="glossy-input w-full"
+          >
+            <option value={1}>Last 1 Hour</option>
+            <option value={6}>Last 6 Hours</option>
+            <option value={24}>Last 24 Hours</option>
+            <option value={48}>Last 48 Hours</option>
+          </select>
         </div>
+        <button
+          onClick={exportStorageData}
+          className="glossy-button flex items-center gap-2 mt-6"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </button>
+      </div>
+      
+      {storageData && storageData.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {storageData.map((storage, idx) => (
+              <div key={idx} className="glossy-card p-6">
+                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                  {storage.device}
+                </div>
+                <div className="text-lg font-semibold text-white mb-2">
+                  {storage.mountpoint}
+                </div>
+                <div className="text-3xl font-bold text-white mb-2">
+                  {storage.percent.toFixed(1)}%
+                </div>
+                <div className="text-sm text-navy-200">
+                  {storage.used.toFixed(1)} GB used of {storage.total.toFixed(1)} GB
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Historical Graph */}
+          {historicalData && historicalData.length > 0 && (
+            <div className="glossy-card p-6 mt-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Storage Usage History</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={historicalData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    stroke="#94a3b8"
+                    tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                  />
+                  <YAxis stroke="#94a3b8" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="percent" stroke="#3b82f6" name="Usage %" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
       ) : (
         <div className="glossy-card p-6 text-navy-200">Unable to retrieve storage metrics</div>
       )}

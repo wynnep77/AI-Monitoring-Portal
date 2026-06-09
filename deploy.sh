@@ -92,6 +92,12 @@ if [ ! -f ".env" ]; then
     echo "✅ .env file created"
 fi
 
+# Stop and remove existing containers to avoid containerconfig errors
+echo "🛑 Stopping and removing existing containers..."
+docker-compose down 2>/dev/null || true
+docker rm -f gpu-monitor-backend 2>/dev/null || true
+docker rm -f gpu-monitor-frontend 2>/dev/null || true
+
 # Build the Docker image
 echo "🔨 Building Docker image..."
 docker-compose build

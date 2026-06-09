@@ -15,6 +15,8 @@ function App() {
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [showAddServer, setShowAddServer] = useState(false);
   const [testMode, setTestMode] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [apiStatus, setApiStatus] = useState('Unknown');
 
   // Fetch servers
   const fetchServers = async () => {
@@ -29,8 +31,13 @@ function App() {
   // Fetch overview data
   const fetchOverview = async () => {
     setLoading(true);
+    setApiError(null);
+    setApiStatus('Fetching...');
     try {
       let response;
+      const url = testMode ? `${API_BASE}/api/test` : `${API_BASE}/api/overview`;
+      console.log('Fetching from:', url);
+      
       if (testMode) {
         response = await axios.get(`${API_BASE}/api/test`);
       } else {
@@ -38,9 +45,18 @@ function App() {
           params: { server_name: selectedServer }
         });
       }
+      console.log('Response:', response.data);
       setOverview(response.data);
+      setApiStatus('Connected');
     } catch (error) {
       console.error('Error fetching overview:', error);
+      setApiError(error.message);
+      setApiStatus('Error');
+      if (error.response) {
+        setApiError(`HTTP ${error.response.status}: ${error.response.statusText}`);
+      } else if (error.request) {
+        setApiError('No response from server - check if backend is running');
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +117,9 @@ function App() {
               <h1 className="text-2xl font-bold text-white">GPU Monitor Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
+              <div className={`text-sm px-3 py-1 rounded ${apiStatus === 'Connected' ? 'bg-green-600' : apiStatus === 'Error' ? 'bg-red-600' : 'bg-gray-600'}`}>
+                API: {apiStatus}
+              </div>
               <button
                 onClick={() => setTestMode(!testMode)}
                 className={`glossy-button flex items-center gap-2 ${testMode ? 'bg-yellow-600' : ''}`}
@@ -159,6 +178,15 @@ function App() {
 
           {/* Main Content */}
           <main className="flex-1">
+            {/* Error Display */}
+            {apiError && (
+              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+                <h3 className="text-white font-semibold mb-2">API Error</h3>
+                <p className="text-red-200">{apiError}</p>
+                <p className="text-red-300 text-sm mt-2">API URL: {API_BASE}</p>
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex gap-2 mb-6">
               {[

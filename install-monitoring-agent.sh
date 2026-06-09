@@ -20,13 +20,35 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "📁 Repository directory: $REPO_DIR"
 
+# Check Python version
+echo "🐍 Checking Python version..."
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+echo "Found Python $PYTHON_VERSION"
+
+# Ensure pip3 is installed
+if ! command -v pip3 &> /dev/null; then
+    echo "📦 pip3 not found, installing..."
+    python3 -m ensurepip --upgrade
+    if [ $? -ne 0 ]; then
+        echo "📦 Installing pip via get-pip.py..."
+        curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+        python3 /tmp/get-pip.py
+        rm /tmp/get-pip.py
+    fi
+fi
+
+echo "✅ pip3 is installed"
+
 # Install Python dependencies
-echo "📦 Installing Python dependencies..."
+echo "📦 Installing Python dependencies (requests)..."
 pip3 install requests --quiet
 
 # Copy systemd service file
 echo "📋 Installing systemd service..."
 sed "s|/root/AI-Monitoring-Portal|$REPO_DIR|g" monitoring-agent.service > /etc/systemd/system/gpu-monitoring-agent.service
+
+# Update ExecStart to use python3
+sed -i 's|/usr/bin/python3|/usr/bin/python3.12|g' /etc/systemd/system/gpu-monitoring-agent.service
 
 # Reload systemd
 echo "🔄 Reloading systemd..."

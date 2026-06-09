@@ -183,16 +183,20 @@ class GPUMonitor:
             temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
             
             # Power info (may not be available on all GPUs)
+            power_usage = 0.0
             try:
                 power_usage = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # Convert to watts
-            except:
-                power_usage = 0.0
+            except pynvml.NVMLError as e:
+                if str(e) != "Not Supported":
+                    print(f"Warning: Could not get power usage for GPU {gpu_id}: {e}")
             
             # Fan speed (may not be available on all GPUs)
+            fan_speed = 0
             try:
                 fan_speed = pynvml.nvmlDeviceGetFanSpeed(handle)
-            except:
-                fan_speed = 0.0
+            except pynvml.NVMLError as e:
+                if str(e) != "Not Supported":
+                    print(f"Warning: Could not get fan speed for GPU {gpu_id}: {e}")
             
             return {
                 "gpu_id": gpu_id,
@@ -204,6 +208,13 @@ class GPUMonitor:
                 "power_usage": power_usage,
                 "fan_speed": fan_speed
             }
+        except pynvml.NVMLError as e:
+            if str(e) == "Not Supported":
+                print(f"Warning: Some metrics not supported for GPU {gpu_id}, using fallback")
+                # Try fallback method for this GPU
+                return self._get_gpu_info_smi(gpu_id)
+            print(f"Error getting GPU {gpu_id} info: {e}")
+            return None
         except Exception as e:
             print(f"Error getting GPU {gpu_id} info: {e}")
             return None

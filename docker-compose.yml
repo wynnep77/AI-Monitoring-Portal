@@ -10,9 +10,6 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-      - ./monitors:/app/monitors
-      - ./database.py:/app/database.py
-      - ./config.py:/app/config.py
     deploy:
       resources:
         reservations:

@@ -27,10 +27,30 @@ app.add_middleware(
 # Initialize database
 init_db()
 
-# Initialize monitors
-gpu_monitor = GPUMonitor()
-cpu_monitor = CPUMonitor()
-storage_monitor = StorageMonitor()
+# Initialize monitors with error handling
+print("Initializing monitors...")
+try:
+    gpu_monitor = GPUMonitor()
+    print(f"GPU Monitor initialized: {gpu_monitor.initialized}")
+    if hasattr(gpu_monitor, 'use_smi_fallback'):
+        print(f"GPU Monitor using SMI fallback: {gpu_monitor.use_smi_fallback}")
+except Exception as e:
+    print(f"Error initializing GPU monitor: {e}")
+    gpu_monitor = None
+
+try:
+    cpu_monitor = CPUMonitor()
+    print("CPU Monitor initialized successfully")
+except Exception as e:
+    print(f"Error initializing CPU monitor: {e}")
+    cpu_monitor = None
+
+try:
+    storage_monitor = StorageMonitor()
+    print("Storage Monitor initialized successfully")
+except Exception as e:
+    print(f"Error initializing storage monitor: {e}")
+    storage_monitor = None
 
 @app.get("/")
 async def root():
@@ -119,8 +139,12 @@ async def delete_server(server_id: int):
 @app.get("/api/gpu/current")
 async def get_current_gpu_metrics(server_name: str = "localhost"):
     """Get current GPU metrics"""
+    if not gpu_monitor:
+        raise HTTPException(status_code=503, detail="GPU monitor not initialized")
     try:
+        print(f"Fetching GPU metrics for {server_name}")
         gpu_metrics = gpu_monitor.get_all_gpu_info(server_name)
+        print(f"GPU metrics result: {gpu_metrics}")
         if not gpu_metrics:
             return {"message": "No GPUs detected", "gpus": []}
         
@@ -129,6 +153,7 @@ async def get_current_gpu_metrics(server_name: str = "localhost"):
         
         return {"gpus": gpu_metrics}
     except Exception as e:
+        print(f"Error fetching GPU metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/gpu/historical")
@@ -148,8 +173,12 @@ async def get_historical_gpu_metrics(
 @app.get("/api/cpu/current")
 async def get_current_cpu_metrics(server_name: str = "localhost"):
     """Get current CPU metrics"""
+    if not cpu_monitor:
+        raise HTTPException(status_code=503, detail="CPU monitor not initialized")
     try:
+        print(f"Fetching CPU metrics for {server_name}")
         cpu_metrics = cpu_monitor.get_cpu_info(server_name)
+        print(f"CPU metrics result: {cpu_metrics}")
         if not cpu_metrics:
             return {"message": "Unable to retrieve CPU metrics", "cpu": None}
         
@@ -158,6 +187,7 @@ async def get_current_cpu_metrics(server_name: str = "localhost"):
         
         return {"cpu": cpu_metrics}
     except Exception as e:
+        print(f"Error fetching CPU metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/cpu/historical")
@@ -176,8 +206,12 @@ async def get_historical_cpu_metrics(
 @app.get("/api/storage/current")
 async def get_current_storage_metrics(server_name: str = "localhost"):
     """Get current storage metrics"""
+    if not storage_monitor:
+        raise HTTPException(status_code=503, detail="Storage monitor not initialized")
     try:
+        print(f"Fetching storage metrics for {server_name}")
         storage_metrics = storage_monitor.get_storage_info(server_name)
+        print(f"Storage metrics result: {storage_metrics}")
         if not storage_metrics:
             return {"message": "Unable to retrieve storage metrics", "storage": []}
         
@@ -186,6 +220,7 @@ async def get_current_storage_metrics(server_name: str = "localhost"):
         
         return {"storage": storage_metrics}
     except Exception as e:
+        print(f"Error fetching storage metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/storage/historical")

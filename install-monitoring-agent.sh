@@ -43,7 +43,7 @@ echo "✅ pip3 is installed"
 echo "📦 Checking Python dependencies (requests)..."
 if ! python3 -c "import requests" 2>/dev/null; then
     echo "📦 Installing requests package..."
-    pip3 install requests --quiet
+    pip3 install requests --quiet --break-system-packages
 else
     echo "✅ requests already installed"
 fi

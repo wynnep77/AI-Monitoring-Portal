@@ -39,8 +39,8 @@ apt-get install -y \
 
 # Install Python packages globally
 echo "📦 Installing Python packages globally..."
-pip3 install --upgrade pip
-pip3 install requests
+pip3 install --upgrade pip --break-system-packages
+pip3 install requests --break-system-packages
 
 # Install Docker
 echo "🐳 Installing Docker..."

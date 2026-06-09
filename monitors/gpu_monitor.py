@@ -55,6 +55,21 @@ class GPUMonitor:
             else:
                 print("❌ No GPUs detected via nvidia-smi")
         
+        # If NVML initialized but can't get GPU count, force fallback
+        if self.initialized and not self.use_smi_fallback:
+            try:
+                device_count = pynvml.nvmlDeviceGetCount()
+                if device_count == 0:
+                    print("⚠️  NVML reports 0 GPUs, trying nvidia-smi fallback")
+                    if self._check_nvidia_smi():
+                        print("✅ GPUs available via nvidia-smi, switching to fallback method")
+                        self.use_smi_fallback = True
+            except Exception as e:
+                print(f"⚠️  Error getting GPU count via NVML: {e}, trying nvidia-smi fallback")
+                if self._check_nvidia_smi():
+                    print("✅ GPUs available via nvidia-smi, switching to fallback method")
+                    self.use_smi_fallback = True
+        
         print("=" * 60)
     
     def _check_nvidia_smi(self) -> bool:

@@ -133,6 +133,43 @@ async def get_diagnostics():
     
     return diagnostics
 
+@app.get("/api/test")
+async def get_test_data():
+    """Return test data to verify frontend can display data"""
+    return {
+        "gpu": [
+            {
+                "name": "NVIDIA RTX Pro 6000 (Test)",
+                "utilization": 45.2,
+                "memory_used": 12.5,
+                "memory_total": 24.0,
+                "temperature": 65
+            }
+        ],
+        "cpu": {
+            "cpu_percent": 35.5,
+            "cpu_count": 16,
+            "memory_percent": 42.3,
+            "memory_used": 16.8,
+            "memory_total": 64.0,
+            "load_avg_1m": 2.5,
+            "load_avg_5m": 2.1,
+            "load_avg_15m": 1.8
+        },
+        "storage": [
+            {
+                "device": "/dev/sda1",
+                "mountpoint": "/",
+                "total": 500.0,
+                "used": 250.5,
+                "free": 249.5,
+                "percent": 50.1
+            }
+        ],
+        "timestamp": datetime.utcnow().isoformat(),
+        "test_mode": True
+    }
+
 # Server Management Endpoints
 @app.get("/api/servers")
 async def get_servers():

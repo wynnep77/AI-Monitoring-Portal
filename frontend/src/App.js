@@ -14,6 +14,7 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [showAddServer, setShowAddServer] = useState(false);
+  const [testMode, setTestMode] = useState(false);
 
   // Fetch servers
   const fetchServers = async () => {
@@ -29,9 +30,14 @@ function App() {
   const fetchOverview = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE}/api/overview`, {
-        params: { server_name: selectedServer }
-      });
+      let response;
+      if (testMode) {
+        response = await axios.get(`${API_BASE}/api/test`);
+      } else {
+        response = await axios.get(`${API_BASE}/api/overview`, {
+          params: { server_name: selectedServer }
+        });
+      }
       setOverview(response.data);
     } catch (error) {
       console.error('Error fetching overview:', error);
@@ -95,6 +101,13 @@ function App() {
               <h1 className="text-2xl font-bold text-white">GPU Monitor Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => setTestMode(!testMode)}
+                className={`glossy-button flex items-center gap-2 ${testMode ? 'bg-yellow-600' : ''}`}
+              >
+                <Monitor className="w-4 h-4" />
+                {testMode ? 'Test Mode: ON' : 'Test Mode: OFF'}
+              </button>
               <button
                 onClick={fetchOverview}
                 className="glossy-button flex items-center gap-2"

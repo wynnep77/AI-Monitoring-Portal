@@ -10,18 +10,52 @@ class GPUMonitor:
         self.initialized = False
         self.init_error = None
         self.use_smi_fallback = False
+        print("=" * 60)
+        print("Initializing GPU Monitor")
+        print("=" * 60)
+        
+        # Check if nvidia-smi is available
+        print("Checking nvidia-smi availability...")
+        try:
+            result = subprocess.run(['which', 'nvidia-smi'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                print(f"nvidia-smi found at: {result.stdout.strip()}")
+            else:
+                print("nvidia-smi not found in PATH")
+        except Exception as e:
+            print(f"Error checking nvidia-smi: {e}")
+        
+        # Try nvidia-smi directly
+        print("Testing nvidia-smi command...")
+        try:
+            result = subprocess.run(['nvidia-smi', '--version'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                print(f"nvidia-smi version: {result.stdout.strip()}")
+            else:
+                print(f"nvidia-smi failed: {result.stderr}")
+        except Exception as e:
+            print(f"nvidia-smi command failed: {e}")
+        
+        # Try NVML initialization
+        print("Attempting NVML initialization...")
         try:
             pynvml.nvmlInit()
             self.initialized = True
-            print("NVML initialized successfully")
+            print("✅ NVML initialized successfully")
+            device_count = pynvml.nvmlDeviceGetCount()
+            print(f"✅ Found {device_count} GPU(s) via NVML")
         except Exception as e:
             self.init_error = str(e)
-            print(f"Failed to initialize NVML: {e}")
+            print(f"❌ Failed to initialize NVML: {e}")
             print("Attempting to check GPU availability via nvidia-smi...")
             if self._check_nvidia_smi():
-                print("GPUs available via nvidia-smi, using fallback method")
+                print("✅ GPUs available via nvidia-smi, using fallback method")
                 self.use_smi_fallback = True
                 self.initialized = True
+            else:
+                print("❌ No GPUs detected via nvidia-smi")
+        
+        print("=" * 60)
     
     def _check_nvidia_smi(self) -> bool:
         """Check GPU availability using nvidia-smi command"""

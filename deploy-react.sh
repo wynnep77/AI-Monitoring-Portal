@@ -69,6 +69,15 @@ docker-compose down
 echo "🔨 Building and starting containers..."
 docker-compose up -d --build
 
+# Install monitoring agent
+echo "📋 Installing automated monitoring agent..."
+if [ -f "install-monitoring-agent.sh" ]; then
+    chmod +x install-monitoring-agent.sh
+    sudo ./install-monitoring-agent.sh
+else
+    echo "⚠️  Monitoring agent installation script not found, skipping..."
+fi
+
 echo ""
 echo "=========================================="
 echo "✅ Deployment Complete!"
@@ -82,6 +91,11 @@ echo ""
 echo "To view logs:"
 echo "   docker-compose logs -f"
 echo ""
+echo "To view monitoring agent logs:"
+echo "   journalctl -u gpu-monitoring-agent -f"
+echo ""
 echo "To stop the application:"
 echo "   docker-compose down"
+echo ""
+echo "The monitoring agent will automatically report issues to GitHub."
 echo ""

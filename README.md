@@ -122,6 +122,72 @@ npm start
 
 The frontend will be available at `http://localhost:3000` and will proxy API requests to `http://localhost:8000`.
 
+## Automated Monitoring Agent
+
+The GPU Monitor Dashboard includes an automated monitoring agent that:
+
+- Monitors application logs for errors and warnings
+- Checks container status and GPU availability
+- Automatically reports issues to GitHub as issues
+- Runs as a systemd service for continuous monitoring
+- Prevents duplicate issue reporting (24-hour cooldown)
+
+### Features
+
+- **Log Monitoring**: Detects errors, exceptions, and warnings in Docker logs
+- **Container Health**: Checks if containers are running properly
+- **GPU Status**: Monitors GPU availability via nvidia-smi
+- **GitHub Integration**: Automatically creates GitHub issues when problems are detected
+- **Smart Reporting**: Avoids duplicate reports with 24-hour cooldown per issue type
+
+### Installation
+
+The monitoring agent is automatically installed during deployment when using `deploy-react.sh`.
+
+To install manually:
+
+```bash
+chmod +x install-monitoring-agent.sh
+sudo ./install-monitoring-agent.sh
+```
+
+### Configuration
+
+The monitoring agent can be configured via environment variables:
+
+- `MONITOR_CHECK_INTERVAL`: Check interval in seconds (default: 300 = 5 minutes)
+- `GITHUB_TOKEN`: Optional GitHub token for authenticated requests (increases rate limits)
+
+### Management
+
+```bash
+# Check service status
+sudo systemctl status gpu-monitoring-agent
+
+# View logs
+sudo journalctl -u gpu-monitoring-agent -f
+
+# Stop the service
+sudo systemctl stop gpu-monitoring-agent
+
+# Start the service
+sudo systemctl start gpu-monitoring-agent
+
+# Restart the service
+sudo systemctl restart gpu-monitoring-agent
+
+# Disable the service
+sudo systemctl disable gpu-monitoring-agent
+```
+
+### Manual Run
+
+To run the monitoring agent manually for testing:
+
+```bash
+python3 monitoring_agent.py
+```
+
 ## Architecture
 
 The application is split into two main components:

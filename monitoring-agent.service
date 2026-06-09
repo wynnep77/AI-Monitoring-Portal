@@ -1,0 +1,18 @@
+[Unit]
+Description=GPU Monitor Dashboard - Automated Monitoring Agent
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/AI-Monitoring-Portal
+Environment="MONITOR_CHECK_INTERVAL=300"
+ExecStart=/usr/bin/python3 /root/AI-Monitoring-Portal/monitoring_agent.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

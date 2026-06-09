@@ -65,6 +65,28 @@ if [ -d "venv" ]; then
     rm -rf venv
 fi
 
+# Check if monitoring agent is running (systemd service)
+if systemctl is-active --quiet gpu-monitoring-agent; then
+    echo "🤖 Cleaning up monitoring agent..."
+    
+    # Stop the service
+    echo "🛑 Stopping monitoring agent service..."
+    sudo systemctl stop gpu-monitoring-agent
+    
+    # Disable the service
+    echo "🗑️  Disabling monitoring agent service..."
+    sudo systemctl disable gpu-monitoring-agent
+    
+    # Remove the service file
+    echo "🗑️  Removing service file..."
+    sudo rm -f /etc/systemd/system/gpu-monitoring-agent.service
+    
+    # Reload systemd
+    sudo systemctl daemon-reload
+    
+    echo "✅ Monitoring agent cleaned up"
+fi
+
 echo ""
 echo "✅ Cleanup complete!"
 echo ""

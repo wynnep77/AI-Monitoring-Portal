@@ -3,7 +3,8 @@ import axios from 'axios';
 import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import './index.css';
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use relative URL so nginx proxy handles the routing
+const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('overview');

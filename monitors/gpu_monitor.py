@@ -112,41 +112,66 @@ class GPUMonitor:
                 ['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
                 capture_output=True, text=True, timeout=5
             )
-            utilization = int(util_result.stdout.strip()) if util_result.returncode == 0 else 0
+            utilization = 0
+            if util_result.returncode == 0:
+                try:
+                    utilization = int(util_result.stdout.strip())
+                except ValueError:
+                    print(f"Warning: Could not parse utilization: {util_result.stdout.strip()}")
             
             # Get memory info
             mem_result = subprocess.run(
                 ['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
                 capture_output=True, text=True, timeout=5
             )
+            mem_used_gb = 0
+            mem_total_gb = 0
             if mem_result.returncode == 0:
-                mem_used, mem_total = map(int, mem_result.stdout.strip().split(','))
-                mem_used_gb = mem_used / 1024
-                mem_total_gb = mem_total / 1024
-            else:
-                mem_used_gb = 0
-                mem_total_gb = 0
+                try:
+                    mem_parts = mem_result.stdout.strip().split(',')
+                    if len(mem_parts) == 2:
+                        mem_used = int(mem_parts[0].strip())
+                        mem_total = int(mem_parts[1].strip())
+                        mem_used_gb = mem_used / 1024
+                        mem_total_gb = mem_total / 1024
+                except (ValueError, IndexError) as e:
+                    print(f"Warning: Could not parse memory info: {mem_result.stdout.strip()}")
             
             # Get temperature
             temp_result = subprocess.run(
                 ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
                 capture_output=True, text=True, timeout=5
             )
-            temperature = int(temp_result.stdout.strip()) if temp_result.returncode == 0 else 0
+            temperature = 0
+            if temp_result.returncode == 0:
+                try:
+                    temperature = int(temp_result.stdout.strip())
+                except ValueError:
+                    print(f"Warning: Could not parse temperature: {temp_result.stdout.strip()}")
             
             # Get power usage
             power_result = subprocess.run(
                 ['nvidia-smi', '--query-gpu=power.draw', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
                 capture_output=True, text=True, timeout=5
             )
-            power_usage = float(power_result.stdout.strip()) if power_result.returncode == 0 else 0.0
+            power_usage = 0.0
+            if power_result.returncode == 0:
+                try:
+                    power_usage = float(power_result.stdout.strip())
+                except ValueError:
+                    print(f"Warning: Could not parse power usage: {power_result.stdout.strip()}")
             
             # Get fan speed
             fan_result = subprocess.run(
                 ['nvidia-smi', '--query-gpu=fan.speed', '--format=csv,noheader,nounits', '--id', str(gpu_id)],
                 capture_output=True, text=True, timeout=5
             )
-            fan_speed = int(fan_result.stdout.strip()) if fan_result.returncode == 0 else 0
+            fan_speed = 0
+            if fan_result.returncode == 0:
+                try:
+                    fan_speed = int(fan_result.stdout.strip())
+                except ValueError:
+                    print(f"Warning: Could not parse fan speed: {fan_result.stdout.strip()}")
             
             return {
                 "gpu_id": gpu_id,

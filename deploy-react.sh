@@ -11,6 +11,15 @@ echo "React + FastAPI Architecture"
 echo "=========================================="
 echo ""
 
+# Function to run command with sudo if needed
+run_sudo() {
+    if [ "$EUID" -ne 0 ]; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
+
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "❌ Docker is not installed. Please install Docker first."
@@ -72,8 +81,8 @@ docker-compose up -d --build
 # Install monitoring agent
 echo "📋 Installing automated monitoring agent..."
 if [ -f "install-monitoring-agent.sh" ]; then
-    chmod +x install-monitoring-agent.sh
-    sudo ./install-monitoring-agent.sh
+    run_sudo chmod +x install-monitoring-agent.sh
+    run_sudo ./install-monitoring-agent.sh
 else
     echo "⚠️  Monitoring agent installation script not found, skipping..."
 fi

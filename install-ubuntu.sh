@@ -29,12 +29,18 @@ apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
+    python3-dev \
     build-essential \
     software-properties-common \
     apt-transport-https \
     ca-certificates \
     gnupg \
     lsb-release
+
+# Install Python packages globally
+echo "📦 Installing Python packages globally..."
+pip3 install --upgrade pip
+pip3 install requests
 
 # Install Docker
 echo "🐳 Installing Docker..."

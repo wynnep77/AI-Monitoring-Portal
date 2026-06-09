@@ -39,9 +39,14 @@ fi
 
 echo "✅ pip3 is installed"
 
-# Install Python dependencies
-echo "📦 Installing Python dependencies (requests)..."
-pip3 install requests --quiet
+# Install Python dependencies (requests should already be installed by install-ubuntu.sh)
+echo "📦 Checking Python dependencies (requests)..."
+if ! python3 -c "import requests" 2>/dev/null; then
+    echo "📦 Installing requests package..."
+    pip3 install requests --quiet
+else
+    echo "✅ requests already installed"
+fi
 
 # Copy systemd service file
 echo "📋 Installing systemd service..."

@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python packages
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY monitors/ /app/monitors/
 COPY database.py /app/
 COPY config.py /app/
-COPY main.py /app/
+COPY backend/main.py /app/
 
 # Create data directory
 RUN mkdir -p /app/data

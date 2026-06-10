@@ -12,7 +12,6 @@ function App() {
   const [servers, setServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState('localhost');
   const [overview, setOverview] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [showAddServer, setShowAddServer] = useState(false);
@@ -20,6 +19,7 @@ function App() {
   const [apiError, setApiError] = useState(null);
   const [apiStatus, setApiStatus] = useState('Unknown');
   const [exportPeriod, setExportPeriod] = useState(1);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Fetch servers
   const fetchServers = async () => {
@@ -33,7 +33,6 @@ function App() {
 
   // Fetch overview data
   const fetchOverview = async () => {
-    setLoading(true);
     setApiError(null);
     setApiStatus('Fetching...');
     try {
@@ -60,8 +59,6 @@ function App() {
       } else if (error.request) {
         setApiError('No response from server - check if backend is running');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -150,7 +147,10 @@ function App() {
   // Auto refresh
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(fetchOverview, refreshInterval * 1000);
+    const interval = setInterval(() => {
+      setRefreshTrigger(prev => prev + 1);
+      fetchOverview();
+    }, refreshInterval * 1000);
     return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, selectedServer]);
 
@@ -244,19 +244,19 @@ function App() {
 
             {/* Tab Content */}
             {activeTab === 'overview' && (
-              <OverviewTab overview={overview} loading={loading} />
+              <OverviewTab overview={overview} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'gpu' && (
-              <GPUTab serverName={selectedServer} API_BASE={API_BASE} />
+              <GPUTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'cpu' && (
-              <CPUTab serverName={selectedServer} API_BASE={API_BASE} />
+              <CPUTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'storage' && (
-              <StorageTab serverName={selectedServer} API_BASE={API_BASE} />
+              <StorageTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'ollama' && (
-              <OllamaTab serverName={selectedServer} API_BASE={API_BASE} />
+              <OllamaTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'servers' && (
               <ServersTab
@@ -285,11 +285,7 @@ function App() {
 }
 
 // Overview Tab Component
-function OverviewTab({ overview, loading }) {
-  if (loading) {
-    return <div className="text-navy-200">Loading...</div>;
-  }
-
+function OverviewTab({ overview, refreshTrigger }) {
   if (!overview) {
     return <div className="text-navy-200">No data available</div>;
   }
@@ -366,7 +362,7 @@ function OverviewTab({ overview, loading }) {
 }
 
 // GPU Tab Component
-function GPUTab({ serverName, API_BASE }) {
+function GPUTab({ serverName, API_BASE, refreshTrigger }) {
   const [gpuData, setGpuData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
   const [selectedGpu, setSelectedGpu] = useState(null);
@@ -374,13 +370,13 @@ function GPUTab({ serverName, API_BASE }) {
 
   useEffect(() => {
     fetchGpuData();
-  }, [serverName]);
+  }, [serverName, refreshTrigger]);
 
   useEffect(() => {
     if (selectedGpu !== null) {
       fetchHistoricalData();
     }
-  }, [selectedGpu, timeRange, serverName]);
+  }, [selectedGpu, timeRange, serverName, refreshTrigger]);
 
   const fetchGpuData = async () => {
     try {
@@ -559,18 +555,18 @@ function GPUTab({ serverName, API_BASE }) {
 }
 
 // CPU Tab Component
-function CPUTab({ serverName, API_BASE }) {
+function CPUTab({ serverName, API_BASE, refreshTrigger }) {
   const [cpuData, setCpuData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
   const [timeRange, setTimeRange] = useState(1);
 
   useEffect(() => {
     fetchCpuData();
-  }, [serverName]);
+  }, [serverName, refreshTrigger]);
 
   useEffect(() => {
     fetchHistoricalData();
-  }, [timeRange, serverName]);
+  }, [timeRange, serverName, refreshTrigger]);
 
   const fetchCpuData = async () => {
     try {
@@ -715,18 +711,18 @@ function CPUTab({ serverName, API_BASE }) {
 }
 
 // Storage Tab Component
-function StorageTab({ serverName, API_BASE }) {
+function StorageTab({ serverName, API_BASE, refreshTrigger }) {
   const [storageData, setStorageData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
   const [timeRange, setTimeRange] = useState(1);
 
   useEffect(() => {
     fetchStorageData();
-  }, [serverName]);
+  }, [serverName, refreshTrigger]);
 
   useEffect(() => {
     fetchHistoricalData();
-  }, [timeRange, serverName]);
+  }, [timeRange, serverName, refreshTrigger]);
 
   const fetchStorageData = async () => {
     try {
@@ -1038,18 +1034,18 @@ function ServersTab({
 }
 
 // Ollama Tab Component
-function OllamaTab({ serverName, API_BASE }) {
+function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
   const [ollamaData, setOllamaData] = useState(null);
   const [historicalData, setHistoricalData] = useState(null);
   const [timeRange, setTimeRange] = useState(1);
 
   useEffect(() => {
     fetchOllamaData();
-  }, [serverName]);
+  }, [serverName, refreshTrigger]);
 
   useEffect(() => {
     fetchHistoricalData();
-  }, [timeRange, serverName]);
+  }, [timeRange, serverName, refreshTrigger]);
 
   const fetchOllamaData = async () => {
     try {

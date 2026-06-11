@@ -10,7 +10,7 @@
 
 @layer components {
   .glossy-card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200;
+    @apply bg-white rounded-xl shadow-sm border border-gray-300;
   }
   
   .glossy-button {

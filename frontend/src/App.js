@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download, Brain } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Bar } from 'recharts';
 import './index.css';
 
 // Use empty base URL since nginx proxies /api to backend
@@ -155,17 +155,17 @@ function App() {
   }, [autoRefresh, refreshInterval, selectedServer]);
 
   return (
-    <div className="min-h-screen bg-navy-950">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-navy-900 border-b border-navy-700 shadow-glossy-lg">
+      <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Monitor className="w-8 h-8 text-white" />
-              <h1 className="text-2xl font-bold text-white">GPU Monitor Dashboard</h1>
+              <Monitor className="w-8 h-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">GPU Monitor Dashboard</h1>
             </div>
             <div className="flex items-center gap-4">
-              <div className={`text-sm px-3 py-1 rounded ${apiStatus === 'Connected' ? 'bg-green-600' : apiStatus === 'Error' ? 'bg-red-600' : 'bg-gray-600'}`}>
+              <div className={`text-sm px-3 py-1 rounded ${apiStatus === 'Connected' ? 'bg-green-100 text-green-700' : apiStatus === 'Error' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
                 API: {apiStatus}
               </div>
               <select
@@ -187,7 +187,7 @@ function App() {
               </button>
               <button
                 onClick={() => setTestMode(!testMode)}
-                className={`glossy-button flex items-center gap-2 ${testMode ? 'bg-yellow-600' : ''}`}
+                className={`glossy-button flex items-center gap-2 ${testMode ? 'bg-yellow-500' : ''}`}
               >
                 <Monitor className="w-4 h-4" />
                 {testMode ? 'Test Mode: ON' : 'Test Mode: OFF'}
@@ -209,10 +209,10 @@ function App() {
         <main className="flex-1">
             {/* Error Display */}
             {apiError && (
-              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
-                <h3 className="text-white font-semibold mb-2">API Error</h3>
-                <p className="text-red-200">{apiError}</p>
-                <p className="text-red-300 text-sm mt-2">API URL: {API_BASE}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <h3 className="text-red-800 font-semibold mb-2">API Error</h3>
+                <p className="text-red-600">{apiError}</p>
+                <p className="text-red-500 text-sm mt-2">API URL: {API_BASE}</p>
               </div>
             )}
 
@@ -232,8 +232,8 @@ function App() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
                     activeTab === tab.id
-                      ? 'bg-white text-navy-900 font-medium shadow-glossy'
-                      : 'text-navy-200 hover:bg-navy-800'
+                      ? 'bg-blue-600 text-white font-medium shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
                   <tab.icon className="w-4 h-4" />
@@ -287,25 +287,34 @@ function App() {
 // Overview Tab Component
 function OverviewTab({ overview, refreshTrigger }) {
   if (!overview) {
-    return <div className="text-navy-200">No data available</div>;
+    return <div className="text-gray-600">No data available</div>;
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">System Overview</h2>
+      <h2 className="text-2xl font-bold text-gray-900">System Overview</h2>
       
-      {/* GPU Cards */}
+      {/* GPU Charts */}
       {overview.gpu && overview.gpu.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-white mb-4">GPU Status</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">GPU Status</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {overview.gpu.map((gpu) => (
               <div key={gpu.gpu_id} className="glossy-card p-6">
-                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                   GPU {gpu.gpu_id}
                 </div>
-                <div className="text-xl font-bold text-white mb-4">{gpu.gpu_name}</div>
-                <div className="space-y-2 text-sm text-navy-200">
+                <div className="text-xl font-bold text-gray-900 mb-4">{gpu.gpu_name}</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={[{ name: 'Current', utilization: gpu.utilization }]} layout="vertical">
+                    <XAxis type="number" hide />
+                    <YAxis type="category" dataKey="name" hide />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }} />
+                    <Bar dataKey="utilization" fill="#3b82f6" />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-1 text-sm text-gray-600">
                   <div>Utilization: {gpu.utilization}%</div>
                   <div>Memory: {gpu.memory_used.toFixed(1)} / {gpu.memory_total.toFixed(1)} GB</div>
                   <div>Temperature: {gpu.temperature}°C</div>
@@ -316,41 +325,65 @@ function OverviewTab({ overview, refreshTrigger }) {
         </div>
       )}
 
-      {/* CPU Card */}
+      {/* CPU & Memory Charts */}
       {overview.cpu && (
         <div>
-          <h3 className="text-lg font-semibold text-white mb-4">CPU & Memory</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">CPU & Memory</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 CPU Usage
               </div>
-              <div className="text-3xl font-bold text-white">
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={[{ name: 'Current', value: overview.cpu.cpu_percent }]} layout="vertical">
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" hide />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }} />
+                  <Bar dataKey="value" fill="#10b981" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="text-3xl font-bold text-gray-900 mt-2">
                 {overview.cpu.cpu_percent.toFixed(1)}%
               </div>
-              <div className="text-sm text-navy-200 mt-2">
+              <div className="text-sm text-gray-600 mt-1">
                 Cores: {overview.cpu.cpu_count}
               </div>
             </div>
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 Memory Usage
               </div>
-              <div className="text-3xl font-bold text-white">
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={[{ name: 'Current', value: overview.cpu.memory_percent }]} layout="vertical">
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="name" hide />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }} />
+                  <Bar dataKey="value" fill="#f59e0b" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="text-3xl font-bold text-gray-900 mt-2">
                 {overview.cpu.memory_percent.toFixed(1)}%
               </div>
-              <div className="text-sm text-navy-200 mt-2">
+              <div className="text-sm text-gray-600 mt-1">
                 {overview.cpu.memory_used.toFixed(1)} / {overview.cpu.memory_total.toFixed(1)} GB
               </div>
             </div>
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 Load Average
               </div>
-              <div className="text-3xl font-bold text-white">
-                {overview.cpu.load_avg_1m.toFixed(2)}
-              </div>
-              <div className="text-sm text-navy-200 mt-2">
+              <ResponsiveContainer width="100%" height={150}>
+                <LineChart data={[{ name: '1m', value: overview.cpu.load_avg_1m }, { name: '5m', value: overview.cpu.load_avg_5m }]}>
+                  <XAxis dataKey="name" stroke="#9ca3af" />
+                  <YAxis hide />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }} />
+                  <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="text-sm text-gray-600 mt-2">
                 1m: {overview.cpu.load_avg_1m.toFixed(2)} | 5m: {overview.cpu.load_avg_5m.toFixed(2)}
               </div>
             </div>
@@ -432,12 +465,12 @@ function GPUTab({ serverName, API_BASE, refreshTrigger }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">GPU Performance</h2>
+      <h2 className="text-2xl font-bold text-gray-900">GPU Performance</h2>
       
       {gpuData && gpuData.gpus && gpuData.gpus.length > 0 ? (
         <div>
           <div className="glossy-card p-4">
-            <label className="text-sm text-navy-300 block mb-2">Select GPU</label>
+            <label className="text-sm text-gray-600 block mb-2">Select GPU</label>
             <select
               value={selectedGpu || ''}
               onChange={(e) => setSelectedGpu(parseInt(e.target.value))}
@@ -453,7 +486,7 @@ function GPUTab({ serverName, API_BASE, refreshTrigger }) {
 
           <div className="glossy-card p-4 flex gap-4 items-center">
             <div className="flex-1">
-              <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+              <label className="text-sm text-gray-600 block mb-2">Time Range</label>
               <select
                 value={timeRange}
                 onChange={(e) => setTimeRange(parseInt(e.target.value))}
@@ -477,43 +510,43 @@ function GPUTab({ serverName, API_BASE, refreshTrigger }) {
           {selectedGpu !== null && (
             <div>
               <div className="glossy-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   GPU {selectedGpu} Details
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-navy-300">GPU Name</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">GPU Name</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.gpu_name}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-navy-300">Utilization</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">Utilization</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.utilization}%
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-navy-300">Memory Used</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">Memory Used</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_used.toFixed(2)} GB
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-navy-300">Memory Total</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">Memory Total</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.memory_total.toFixed(2)} GB
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-navy-300">Temperature</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">Temperature</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.temperature}°C
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-navy-300">Power Usage</div>
-                    <div className="text-white font-medium">
+                    <div className="text-sm text-gray-500">Power Usage</div>
+                    <div className="text-gray-900 font-medium">
                       {gpuData.gpus.find(g => g.gpu_id === selectedGpu)?.power_usage.toFixed(2)} W
                     </div>
                   </div>
@@ -523,19 +556,19 @@ function GPUTab({ serverName, API_BASE, refreshTrigger }) {
               {/* Historical Graph */}
               {historicalData && historicalData.length > 0 && (
                 <div className="glossy-card p-6 mt-4">
-                  <h3 className="text-lg font-semibold text-white mb-4">GPU Utilization History</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">GPU Utilization History</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={historicalData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis 
                         dataKey="timestamp" 
-                        stroke="#94a3b8"
+                        stroke="#9ca3af"
                         tickFormatter={(value) => new Date(value).toLocaleTimeString()}
                       />
-                      <YAxis stroke="#94a3b8" />
+                      <YAxis stroke="#9ca3af" />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
-                        labelStyle={{ color: '#e2e8f0' }}
+                        contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+                        labelStyle={{ color: '#374151' }}
                       />
                       <Legend />
                       <Line type="monotone" dataKey="utilization" stroke="#3b82f6" name="Utilization %" />
@@ -548,7 +581,7 @@ function GPUTab({ serverName, API_BASE, refreshTrigger }) {
           )}
         </div>
       ) : (
-        <div className="glossy-card p-6 text-navy-200">No GPUs detected</div>
+        <div className="glossy-card p-6 text-gray-600">No GPUs detected</div>
       )}
     </div>
   );
@@ -618,11 +651,11 @@ function CPUTab({ serverName, API_BASE, refreshTrigger }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">CPU Performance</h2>
+      <h2 className="text-2xl font-bold text-gray-900">CPU Performance</h2>
       
       <div className="glossy-card p-4 flex gap-4 items-center">
         <div className="flex-1">
-          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <label className="text-sm text-gray-600 block mb-2">Time Range</label>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(parseInt(e.target.value))}
@@ -647,32 +680,32 @@ function CPUTab({ serverName, API_BASE, refreshTrigger }) {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 CPU Cores
               </div>
-              <div className="text-3xl font-bold text-white">{cpuData.cpu_count}</div>
+              <div className="text-3xl font-bold text-gray-900">{cpuData.cpu_count}</div>
             </div>
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 CPU Usage
               </div>
-              <div className="text-3xl font-bold text-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {cpuData.cpu_percent.toFixed(1)}%
               </div>
             </div>
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 Memory Used
               </div>
-              <div className="text-3xl font-bold text-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {cpuData.memory_used.toFixed(2)} GB
               </div>
             </div>
             <div className="glossy-card p-6">
-              <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 Memory Total
               </div>
-              <div className="text-3xl font-bold text-white">
+              <div className="text-3xl font-bold text-gray-900">
                 {cpuData.memory_total.toFixed(2)} GB
               </div>
             </div>
@@ -681,19 +714,19 @@ function CPUTab({ serverName, API_BASE, refreshTrigger }) {
           {/* Historical Graph */}
           {historicalData && historicalData.length > 0 && (
             <div className="glossy-card p-6 mt-4">
-              <h3 className="text-lg font-semibold text-white mb-4">CPU Utilization History</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">CPU Utilization History</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="timestamp" 
-                    stroke="#94a3b8"
+                    stroke="#9ca3af"
                     tickFormatter={(value) => new Date(value).toLocaleTimeString()}
                   />
-                  <YAxis stroke="#94a3b8" />
+                  <YAxis stroke="#9ca3af" />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
-                    labelStyle={{ color: '#e2e8f0' }}
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+                    labelStyle={{ color: '#374151' }}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="cpu_percent" stroke="#3b82f6" name="CPU %" />
@@ -704,7 +737,7 @@ function CPUTab({ serverName, API_BASE, refreshTrigger }) {
           )}
         </>
       ) : (
-        <div className="glossy-card p-6 text-navy-200">Unable to retrieve CPU metrics</div>
+        <div className="glossy-card p-6 text-gray-600">Unable to retrieve CPU metrics</div>
       )}
     </div>
   );
@@ -774,11 +807,11 @@ function StorageTab({ serverName, API_BASE, refreshTrigger }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Storage Performance</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Storage Performance</h2>
       
       <div className="glossy-card p-4 flex gap-4 items-center">
         <div className="flex-1">
-          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <label className="text-sm text-gray-600 block mb-2">Time Range</label>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(parseInt(e.target.value))}
@@ -804,16 +837,16 @@ function StorageTab({ serverName, API_BASE, refreshTrigger }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {storageData.map((storage, idx) => (
               <div key={idx} className="glossy-card p-6">
-                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                   {storage.device}
                 </div>
-                <div className="text-lg font-semibold text-white mb-2">
+                <div className="text-lg font-semibold text-gray-900 mb-2">
                   {storage.mountpoint}
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">
+                <div className="text-3xl font-bold text-gray-900 mb-2">
                   {storage.percent.toFixed(1)}%
                 </div>
-                <div className="text-sm text-navy-200">
+                <div className="text-sm text-gray-600">
                   {storage.used.toFixed(1)} GB used of {storage.total.toFixed(1)} GB
                 </div>
               </div>
@@ -823,19 +856,19 @@ function StorageTab({ serverName, API_BASE, refreshTrigger }) {
           {/* Historical Graph */}
           {historicalData && historicalData.length > 0 && (
             <div className="glossy-card p-6 mt-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Storage Usage History</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Storage Usage History</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="timestamp" 
-                    stroke="#94a3b8"
+                    stroke="#9ca3af"
                     tickFormatter={(value) => new Date(value).toLocaleTimeString()}
                   />
-                  <YAxis stroke="#94a3b8" />
+                  <YAxis stroke="#9ca3af" />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
-                    labelStyle={{ color: '#e2e8f0' }}
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+                    labelStyle={{ color: '#374151' }}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="percent" stroke="#3b82f6" name="Usage %" />
@@ -845,7 +878,7 @@ function StorageTab({ serverName, API_BASE, refreshTrigger }) {
           )}
         </>
       ) : (
-        <div className="glossy-card p-6 text-navy-200">Unable to retrieve storage metrics</div>
+        <div className="glossy-card p-6 text-gray-600">Unable to retrieve storage metrics</div>
       )}
     </div>
   );
@@ -861,11 +894,11 @@ function SettingsTab({
 }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Settings</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
       
       {/* Refresh Settings */}
       <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Refresh Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Refresh Settings</h3>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <input
@@ -875,10 +908,10 @@ function SettingsTab({
               onChange={(e) => setAutoRefresh(e.target.checked)}
               className="w-4 h-4"
             />
-            <label htmlFor="auto_refresh" className="text-white">Auto Refresh</label>
+            <label htmlFor="auto_refresh" className="text-gray-900">Auto Refresh</label>
           </div>
           <div>
-            <label className="text-sm text-navy-300 block mb-2">Refresh Interval (seconds)</label>
+            <label className="text-sm text-gray-600 block mb-2">Refresh Interval (seconds)</label>
             <input
               type="number"
               value={refreshInterval}
@@ -893,7 +926,7 @@ function SettingsTab({
 
       {/* Data Management */}
       <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Data Management</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Data Management</h3>
         <button onClick={onCleanup} className="glossy-button">
           🧹 Cleanup Old Data
         </button>
@@ -922,18 +955,18 @@ function ServersTab({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Servers</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Servers</h2>
 
       {/* Server Selection */}
       <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Select Server</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Server</h3>
         <div className="space-y-2">
           <button
             onClick={() => setSelectedServer('localhost')}
             className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
               selectedServer === 'localhost'
-                ? 'bg-white text-navy-900 font-medium'
-                : 'text-navy-200 hover:bg-navy-700'
+                ? 'bg-blue-600 text-white font-medium'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             🖥️ Localhost
@@ -944,8 +977,8 @@ function ServersTab({
               onClick={() => setSelectedServer(server.name)}
               className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
                 selectedServer === server.name
-                  ? 'bg-white text-navy-900 font-medium'
-                  : 'text-navy-200 hover:bg-navy-700'
+                  ? 'bg-blue-600 text-white font-medium'
+                  : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               🖥️ {server.name}
@@ -956,19 +989,19 @@ function ServersTab({
 
       {/* Add Server */}
       <div className="glossy-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Add Server</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Server</h3>
         <button
           onClick={() => setShowAddServer(!showAddServer)}
-          className="glossy-button-primary flex items-center gap-2 mb-4"
+          className="glossy-button flex items-center gap-2 mb-4"
         >
           <Plus className="w-4 h-4" />
           Add New Server
         </button>
 
         {showAddServer && (
-          <form onSubmit={handleAddServer} className="space-y-4 mb-4 p-4 bg-navy-900 rounded-lg">
+          <form onSubmit={handleAddServer} className="space-y-4 mb-4 p-4 bg-gray-50 rounded-lg">
             <div>
-              <label className="text-sm text-navy-300 block mb-2">Server Name</label>
+              <label className="text-sm text-gray-600 block mb-2">Server Name</label>
               <input
                 type="text"
                 value={newServer.name}
@@ -978,7 +1011,7 @@ function ServersTab({
               />
             </div>
             <div>
-              <label className="text-sm text-navy-300 block mb-2">Host/IP</label>
+              <label className="text-sm text-gray-600 block mb-2">Host/IP</label>
               <input
                 type="text"
                 value={newServer.host}
@@ -987,7 +1020,7 @@ function ServersTab({
               />
             </div>
             <div>
-              <label className="text-sm text-navy-300 block mb-2">Port</label>
+              <label className="text-sm text-gray-600 block mb-2">Port</label>
               <input
                 type="number"
                 value={newServer.port}
@@ -1005,9 +1038,9 @@ function ServersTab({
                 onChange={(e) => setNewServer({ ...newServer, is_local: e.target.checked })}
                 className="w-4 h-4"
               />
-              <label htmlFor="is_local" className="text-white">Local Server</label>
+              <label htmlFor="is_local" className="text-gray-900">Local Server</label>
             </div>
-            <button type="submit" className="glossy-button-primary">
+            <button type="submit" className="glossy-button">
               Add Server
             </button>
           </form>
@@ -1015,13 +1048,13 @@ function ServersTab({
 
         <div className="space-y-2">
           {servers.map((server) => (
-            <div key={server.id} className="flex items-center justify-between p-3 bg-navy-900 rounded-lg">
-              <div className="text-white">
+            <div key={server.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="text-gray-900">
                 🖥️ {server.name} ({server.host}:{server.port})
               </div>
               <button
                 onClick={() => onDeleteServer(server.id)}
-                className="text-red-400 hover:text-red-300"
+                className="text-red-500 hover:text-red-600"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -1097,11 +1130,11 @@ function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Ollama LLM Monitoring</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Ollama LLM Monitoring</h2>
       
       <div className="glossy-card p-4 flex gap-4 items-center">
         <div className="flex-1">
-          <label className="text-sm text-navy-300 block mb-2">Time Range</label>
+          <label className="text-sm text-gray-600 block mb-2">Time Range</label>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(parseInt(e.target.value))}
@@ -1127,11 +1160,11 @@ function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ollamaData.models.map((model, idx) => (
               <div key={idx} className="glossy-card p-6">
-                <div className="text-sm text-navy-300 uppercase tracking-wide mb-2">
+                <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                   Model
                 </div>
-                <div className="text-xl font-bold text-white mb-4">{model.name}</div>
-                <div className="space-y-2 text-sm text-navy-200">
+                <div className="text-xl font-bold text-gray-900 mb-4">{model.name}</div>
+                <div className="space-y-2 text-sm text-gray-600">
                   <div>Requests: {model.requests}</div>
                   <div>Input Tokens: {model.input_tokens}</div>
                   <div>Output Tokens: {model.output_tokens}</div>
@@ -1144,19 +1177,19 @@ function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
           {/* Historical Graph */}
           {historicalData && historicalData.length > 0 && (
             <div className="glossy-card p-6 mt-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Token Generation History</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Token Generation History</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e3a5f" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis 
                     dataKey="timestamp" 
-                    stroke="#94a3b8"
+                    stroke="#9ca3af"
                     tickFormatter={(value) => new Date(value).toLocaleTimeString()}
                   />
-                  <YAxis stroke="#94a3b8" />
+                  <YAxis stroke="#9ca3af" />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e3a5f' }}
-                    labelStyle={{ color: '#e2e8f0' }}
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+                    labelStyle={{ color: '#374151' }}
                   />
                   <Legend />
                   <Line type="monotone" dataKey="input_tokens" stroke="#3b82f6" name="Input Tokens" />
@@ -1167,7 +1200,7 @@ function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
           )}
         </>
       ) : (
-        <div className="glossy-card p-6 text-navy-200">Unable to retrieve Ollama metrics</div>
+        <div className="glossy-card p-6 text-gray-600">Unable to retrieve Ollama metrics</div>
       )}
     </div>
   );

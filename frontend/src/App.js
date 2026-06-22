@@ -20,6 +20,9 @@ function App() {
   const [apiStatus, setApiStatus] = useState('Unknown');
   const [exportPeriod, setExportPeriod] = useState(1);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loadTestRunning, setLoadTestRunning] = useState(false);
+  const [loadTestStatus, setLoadTestStatus] = useState(null);
+  const [loadTestProgress, setLoadTestProgress] = useState(0);
 
   // Fetch servers
   const fetchServers = async () => {
@@ -154,6 +157,38 @@ function App() {
     return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, selectedServer]);
 
+  // Monitor load test status globally
+  useEffect(() => {
+    if (!loadTestRunning) return;
+    
+    const monitorInterval = setInterval(async () => {
+      try {
+        const statusResponse = await axios.get(`${API_BASE}/api/loadgen/status`, {
+          params: { server_name: selectedServer }
+        });
+        
+        if (statusResponse.data.status === 'completed') {
+          setLoadTestStatus('Load test completed successfully!');
+          setLoadTestRunning(false);
+          setLoadTestProgress(100);
+        } else if (statusResponse.data.status === 'failed') {
+          setLoadTestStatus('Load test failed: ' + statusResponse.data.error);
+          setLoadTestRunning(false);
+        } else if (statusResponse.data.status === 'stopped') {
+          setLoadTestStatus('Load test stopped.');
+          setLoadTestRunning(false);
+        } else {
+          setLoadTestProgress(statusResponse.data.progress || 0);
+          setLoadTestStatus(`Load test in progress... ${statusResponse.data.progress || 0}%`);
+        }
+      } catch (error) {
+        console.error('Error monitoring load test:', error);
+      }
+    }, 2000);
+    
+    return () => clearInterval(monitorInterval);
+  }, [loadTestRunning, selectedServer, API_BASE]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -256,7 +291,15 @@ function App() {
               <StorageTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
             {activeTab === 'loadgen' && (
-              <LoadGenerationTab serverName={selectedServer} API_BASE={API_BASE} />
+              <LoadGenerationTab 
+                serverName={selectedServer} 
+                API_BASE={API_BASE}
+                loadTestRunning={loadTestRunning}
+                setLoadTestRunning={setLoadTestRunning}
+                loadTestStatus={loadTestStatus}
+                setLoadTestStatus={setLoadTestStatus}
+                loadTestProgress={loadTestProgress}
+              />
             )}
             {activeTab === 'servers' && (
               <ServersTab
@@ -1067,10 +1110,8 @@ function ServersTab({
 }
 
 // Load Generation Tab Component
-function LoadGenerationTab({ serverName, API_BASE }) {
+function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestRunning, loadTestStatus, setLoadTestStatus, loadTestProgress }) {
   const [selectedDuration, setSelectedDuration] = useState(30);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadStatus, setLoadStatus] = useState(null);
   const [currentGpuData, setCurrentGpuData] = useState(null);
 
   const durationOptions = [
@@ -1100,8 +1141,8 @@ function LoadGenerationTab({ serverName, API_BASE }) {
   }, [serverName]);
 
   const startLoadTest = async () => {
-    setIsLoading(true);
-    setLoadStatus('Starting load test...');
+    setLoadTestRunning(true);
+    setLoadTestStatus('Starting load test...');
     
     try {
       const response = await axios.post(`${API_BASE}/api/loadgen/start`, {
@@ -1110,35 +1151,12 @@ function LoadGenerationTab({ serverName, API_BASE }) {
         target_memory_utilization: 90
       });
       
-      setLoadStatus(`Load test started for ${selectedDuration} seconds. Target: 90% GPU memory utilization.`);
-      
-      // Monitor the load test
-      const monitorInterval = setInterval(async () => {
-        try {
-          const statusResponse = await axios.get(`${API_BASE}/api/loadgen/status`, {
-            params: { server_name: serverName }
-          });
-          
-          if (statusResponse.data.status === 'completed') {
-            setLoadStatus('Load test completed successfully!');
-            setIsLoading(false);
-            clearInterval(monitorInterval);
-          } else if (statusResponse.data.status === 'failed') {
-            setLoadStatus('Load test failed: ' + statusResponse.data.error);
-            setIsLoading(false);
-            clearInterval(monitorInterval);
-          } else {
-            setLoadStatus(`Load test in progress... ${statusResponse.data.progress || 0}%`);
-          }
-        } catch (error) {
-          console.error('Error monitoring load test:', error);
-        }
-      }, 2000);
+      setLoadTestStatus(`Load test started for ${selectedDuration} seconds. Target: 90% GPU memory utilization.`);
       
     } catch (error) {
       console.error('Error starting load test:', error);
-      setLoadStatus('Failed to start load test: ' + error.message);
-      setIsLoading(false);
+      setLoadTestStatus('Failed to start load test: ' + error.message);
+      setLoadTestRunning(false);
     }
   };
 
@@ -1147,11 +1165,11 @@ function LoadGenerationTab({ serverName, API_BASE }) {
       await axios.post(`${API_BASE}/api/loadgen/stop`, {
         server_name: serverName
       });
-      setLoadStatus('Load test stopped.');
-      setIsLoading(false);
+      setLoadTestStatus('Load test stopped.');
+      setLoadTestRunning(false);
     } catch (error) {
       console.error('Error stopping load test:', error);
-      setLoadStatus('Failed to stop load test: ' + error.message);
+      setLoadTestStatus('Failed to stop load test: ' + error.message);
     }
   };
 
@@ -1214,14 +1232,14 @@ function LoadGenerationTab({ serverName, API_BASE }) {
           <div className="flex gap-4">
             <button
               onClick={startLoadTest}
-              disabled={isLoading}
+              disabled={loadTestRunning}
               className="glossy-button flex items-center gap-2"
             >
               <Zap className="w-4 h-4" />
-              {isLoading ? 'Running...' : 'Start Load Test'}
+              {loadTestRunning ? 'Running...' : 'Start Load Test'}
             </button>
             
-            {isLoading && (
+            {loadTestRunning && (
               <button
                 onClick={stopLoadTest}
                 className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200"
@@ -1231,13 +1249,13 @@ function LoadGenerationTab({ serverName, API_BASE }) {
             )}
           </div>
 
-          {loadStatus && (
+          {loadTestStatus && (
             <div className={`p-4 rounded-lg ${
-              loadStatus.includes('completed') ? 'bg-green-50 text-green-800' :
-              loadStatus.includes('failed') || loadStatus.includes('Failed') ? 'bg-red-50 text-red-800' :
+              loadTestStatus.includes('completed') ? 'bg-green-50 text-green-800' :
+              loadTestStatus.includes('failed') || loadTestStatus.includes('Failed') ? 'bg-red-50 text-red-800' :
               'bg-blue-50 text-blue-800'
             }`}>
-              {loadStatus}
+              {loadTestStatus}
             </div>
           )}
         </div>

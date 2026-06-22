@@ -1113,6 +1113,7 @@ function ServersTab({
 function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestRunning, loadTestStatus, setLoadTestStatus, loadTestProgress }) {
   const [selectedDuration, setSelectedDuration] = useState(30);
   const [currentGpuData, setCurrentGpuData] = useState(null);
+  const [gpuUtilizationHistory, setGpuUtilizationHistory] = useState([]);
 
   const durationOptions = [
     { value: 30, label: '30 Seconds' },
@@ -1129,6 +1130,28 @@ function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestR
         params: { server_name: serverName }
       });
       setCurrentGpuData(response.data);
+      
+      // Add to utilization history
+      if (response.data && response.data.gpus) {
+        const timestamp = new Date().toLocaleTimeString();
+        const utilizationData = {
+          timestamp: timestamp,
+          ...response.data.gpus.reduce((acc, gpu, index) => {
+            acc[`gpu${index}_utilization`] = gpu.utilization;
+            acc[`gpu${index}_memory`] = ((gpu.memory_used / gpu.memory_total) * 100).toFixed(1);
+            return acc;
+          }, {})
+        };
+        
+        setGpuUtilizationHistory(prev => {
+          const newHistory = [...prev, utilizationData];
+          // Keep only last 60 data points
+          if (newHistory.length > 60) {
+            return newHistory.slice(-60);
+          }
+          return newHistory;
+        });
+      }
     } catch (error) {
       console.error('Error fetching GPU data:', error);
     }
@@ -1260,6 +1283,37 @@ function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestR
           )}
         </div>
       </div>
+
+      {/* Real-time GPU Utilization Graph */}
+      {gpuUtilizationHistory.length > 0 && (
+        <div className="glossy-card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Real-time GPU Utilization</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={gpuUtilizationHistory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="timestamp" 
+                stroke="#9ca3af"
+              />
+              <YAxis stroke="#9ca3af" domain={[0, 100]} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+                labelStyle={{ color: '#374151' }}
+              />
+              <Legend />
+              {currentGpuData && currentGpuData.gpus && currentGpuData.gpus.map((gpu, index) => (
+                <Line 
+                  key={`gpu${index}_utilization`}
+                  type="monotone" 
+                  dataKey={`gpu${index}_utilization`} 
+                  stroke={index === 0 ? '#3b82f6' : index === 1 ? '#10b981' : index === 2 ? '#f59e0b' : '#ef4444'}
+                  name={`GPU ${index} Utilization %`}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

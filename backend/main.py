@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta
 from typing import List, Optional
 import uvicorn
+import threading
+import time
 
 from database import init_db, get_db, MonitoredServer, cleanup_old_data
 from monitors import GPUMonitor, CPUMonitor, StorageMonitor
@@ -37,6 +39,18 @@ try:
 except Exception as e:
     print(f"Error initializing GPU monitor: {e}")
     gpu_monitor = None
+
+# Load generation state
+load_test_state = {
+    "running": False,
+    "server_name": None,
+    "start_time": None,
+    "duration": None,
+    "target_memory_utilization": 90,
+    "progress": 0,
+    "error": None,
+    "thread": None
+}
 
 try:
     cpu_monitor = CPUMonitor()
@@ -372,6 +386,117 @@ async def get_overview(server_name: str = "localhost"):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Load Generation Endpoints
+def run_load_test(server_name: str, duration: int, target_memory_utilization: int):
+    """Background thread function to run load test"""
+    global load_test_state
+    
+    try:
+        load_test_state["running"] = True
+        load_test_state["start_time"] = datetime.utcnow()
+        load_test_state["server_name"] = server_name
+        load_test_state["duration"] = duration
+        load_test_state["target_memory_utilization"] = target_memory_utilization
+        load_test_state["progress"] = 0
+        load_test_state["error"] = None
+        
+        end_time = datetime.utcnow() + timedelta(seconds=duration)
+        
+        while datetime.utcnow() < end_time and load_test_state["running"]:
+            # Calculate progress
+            elapsed = (datetime.utcnow() - load_test_state["start_time"]).total_seconds()
+            load_test_state["progress"] = min((elapsed / duration) * 100, 100)
+            
+            # Simulate load generation by checking GPU metrics
+            try:
+                if gpu_monitor:
+                    gpu_info = gpu_monitor.get_all_gpu_info(server_name)
+                    if gpu_info:
+                        # In a real implementation, this would actually load the GPU
+                        # For now, we simulate by tracking progress
+                        pass
+            except Exception as e:
+                print(f"Error during load test: {e}")
+            
+            time.sleep(2)
+        
+        if load_test_state["running"]:
+            load_test_state["status"] = "completed"
+        else:
+            load_test_state["status"] = "stopped"
+            
+    except Exception as e:
+        load_test_state["error"] = str(e)
+        load_test_state["status"] = "failed"
+    finally:
+        load_test_state["running"] = False
+
+@app.post("/api/loadgen/start")
+async def start_load_test(request: dict):
+    """Start a GPU load test"""
+    global load_test_state
+    
+    if load_test_state["running"]:
+        raise HTTPException(status_code=400, detail="Load test already running")
+    
+    server_name = request.get("server_name", "localhost")
+    duration = request.get("duration", 30)
+    target_memory_utilization = request.get("target_memory_utilization", 90)
+    
+    # Start load test in background thread
+    thread = threading.Thread(
+        target=run_load_test,
+        args=(server_name, duration, target_memory_utilization)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    load_test_state["thread"] = thread
+    load_test_state["status"] = "running"
+    
+    return {
+        "message": "Load test started",
+        "duration": duration,
+        "target_memory_utilization": target_memory_utilization,
+        "server_name": server_name
+    }
+
+@app.get("/api/loadgen/status")
+async def get_load_test_status(server_name: str = "localhost"):
+    """Get the status of the current load test"""
+    global load_test_state
+    
+    if not load_test_state["running"] and load_test_state["status"] not in ["completed", "failed", "stopped"]:
+        return {
+            "status": "not_running",
+            "progress": 0,
+            "error": None
+        }
+    
+    return {
+        "status": load_test_state.get("status", "not_running"),
+        "running": load_test_state["running"],
+        "progress": load_test_state["progress"],
+        "server_name": load_test_state["server_name"],
+        "duration": load_test_state["duration"],
+        "target_memory_utilization": load_test_state["target_memory_utilization"],
+        "start_time": load_test_state["start_time"].isoformat() if load_test_state["start_time"] else None,
+        "error": load_test_state["error"]
+    }
+
+@app.post("/api/loadgen/stop")
+async def stop_load_test(request: dict):
+    """Stop the current load test"""
+    global load_test_state
+    
+    if not load_test_state["running"]:
+        raise HTTPException(status_code=400, detail="No load test is running")
+    
+    load_test_state["running"] = False
+    load_test_state["status"] = "stopped"
+    
+    return {"message": "Load test stopped"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

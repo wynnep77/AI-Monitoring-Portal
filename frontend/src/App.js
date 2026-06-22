@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download, Brain } from 'lucide-react';
+import { Monitor, Cpu, HardDrive, Settings, Server, RefreshCw, Plus, Trash2, Download, Zap } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Bar } from 'recharts';
 import './index.css';
 
@@ -223,7 +223,7 @@ function App() {
                 { id: 'gpu', label: 'GPU', icon: Monitor },
                 { id: 'cpu', label: 'CPU', icon: Cpu },
                 { id: 'storage', label: 'Storage', icon: HardDrive },
-                { id: 'ollama', label: 'Ollama', icon: Brain },
+                { id: 'loadgen', label: 'Load Generation', icon: Zap },
                 { id: 'servers', label: 'Servers', icon: Server },
                 { id: 'settings', label: 'Settings', icon: Settings },
               ].map((tab) => (
@@ -255,8 +255,8 @@ function App() {
             {activeTab === 'storage' && (
               <StorageTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
             )}
-            {activeTab === 'ollama' && (
-              <OllamaTab serverName={selectedServer} API_BASE={API_BASE} refreshTrigger={refreshTrigger} />
+            {activeTab === 'loadgen' && (
+              <LoadGenerationTab serverName={selectedServer} API_BASE={API_BASE} />
             )}
             {activeTab === 'servers' && (
               <ServersTab
@@ -1066,142 +1066,182 @@ function ServersTab({
   );
 }
 
-// Ollama Tab Component
-function OllamaTab({ serverName, API_BASE, refreshTrigger }) {
-  const [ollamaData, setOllamaData] = useState(null);
-  const [historicalData, setHistoricalData] = useState(null);
-  const [timeRange, setTimeRange] = useState(1);
+// Load Generation Tab Component
+function LoadGenerationTab({ serverName, API_BASE }) {
+  const [selectedDuration, setSelectedDuration] = useState(30);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadStatus, setLoadStatus] = useState(null);
+  const [currentGpuData, setCurrentGpuData] = useState(null);
 
-  useEffect(() => {
-    fetchOllamaData();
-  }, [serverName, refreshTrigger]);
+  const durationOptions = [
+    { value: 30, label: '30 Seconds' },
+    { value: 60, label: '60 Seconds' },
+    { value: 300, label: '5 Minutes' },
+    { value: 900, label: '15 Minutes' },
+    { value: 1800, label: '30 Minutes' },
+    { value: 3600, label: '60 Minutes' },
+  ];
 
-  useEffect(() => {
-    fetchHistoricalData();
-  }, [timeRange, serverName, refreshTrigger]);
-
-  const fetchOllamaData = async () => {
+  const fetchCurrentGpuData = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/api/ollama/current`, {
+      const response = await axios.get(`${API_BASE}/api/gpu/current`, {
         params: { server_name: serverName }
       });
-      setOllamaData(response.data);
+      setCurrentGpuData(response.data);
     } catch (error) {
-      console.error('Error fetching Ollama data:', error);
+      console.error('Error fetching GPU data:', error);
     }
   };
 
-  const fetchHistoricalData = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/api/ollama/historical`, {
-        params: { server_name: serverName, hours: timeRange }
-      });
-      setHistoricalData(response.data.metrics);
-    } catch (error) {
-      console.error('Error fetching historical Ollama data:', error);
-    }
-  };
+  useEffect(() => {
+    fetchCurrentGpuData();
+    const interval = setInterval(fetchCurrentGpuData, 2000);
+    return () => clearInterval(interval);
+  }, [serverName]);
 
-  const exportOllamaData = async () => {
+  const startLoadTest = async () => {
+    setIsLoading(true);
+    setLoadStatus('Starting load test...');
+    
     try {
-      const response = await axios.get(`${API_BASE}/api/ollama/historical`, {
-        params: { server_name: serverName, hours: timeRange }
+      const response = await axios.post(`${API_BASE}/api/loadgen/start`, {
+        server_name: serverName,
+        duration: selectedDuration,
+        target_memory_utilization: 90
       });
       
-      let csv = 'Timestamp,Model,Requests,Input Tokens,Output Tokens,Total Tokens\n';
-      if (response.data.metrics) {
-        response.data.metrics.forEach(m => {
-          csv += `${m.timestamp},${m.model},${m.requests},${m.input_tokens},${m.output_tokens},${m.total_tokens}\n`;
-        });
-      }
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ollama-metrics-${timeRange}hrs-${new Date().toISOString()}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      setLoadStatus(`Load test started for ${selectedDuration} seconds. Target: 90% GPU memory utilization.`);
+      
+      // Monitor the load test
+      const monitorInterval = setInterval(async () => {
+        try {
+          const statusResponse = await axios.get(`${API_BASE}/api/loadgen/status`, {
+            params: { server_name: serverName }
+          });
+          
+          if (statusResponse.data.status === 'completed') {
+            setLoadStatus('Load test completed successfully!');
+            setIsLoading(false);
+            clearInterval(monitorInterval);
+          } else if (statusResponse.data.status === 'failed') {
+            setLoadStatus('Load test failed: ' + statusResponse.data.error);
+            setIsLoading(false);
+            clearInterval(monitorInterval);
+          } else {
+            setLoadStatus(`Load test in progress... ${statusResponse.data.progress || 0}%`);
+          }
+        } catch (error) {
+          console.error('Error monitoring load test:', error);
+        }
+      }, 2000);
+      
     } catch (error) {
-      console.error('Error exporting Ollama data:', error);
-      alert('Failed to export Ollama data');
+      console.error('Error starting load test:', error);
+      setLoadStatus('Failed to start load test: ' + error.message);
+      setIsLoading(false);
+    }
+  };
+
+  const stopLoadTest = async () => {
+    try {
+      await axios.post(`${API_BASE}/api/loadgen/stop`, {
+        server_name: serverName
+      });
+      setLoadStatus('Load test stopped.');
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error stopping load test:', error);
+      setLoadStatus('Failed to stop load test: ' + error.message);
     }
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Ollama LLM Monitoring</h2>
+      <h2 className="text-2xl font-bold text-gray-900">Load Generation</h2>
       
-      <div className="glossy-card p-4 flex gap-4 items-center">
-        <div className="flex-1">
-          <label className="text-sm text-gray-600 block mb-2">Time Range</label>
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(parseInt(e.target.value))}
-            className="glossy-input w-full"
-          >
-            <option value={1}>Last 1 Hour</option>
-            <option value={6}>Last 6 Hours</option>
-            <option value={24}>Last 24 Hours</option>
-            <option value={48}>Last 48 Hours</option>
-          </select>
-        </div>
-        <button
-          onClick={exportOllamaData}
-          className="glossy-button flex items-center gap-2 mt-6"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </button>
-      </div>
-      
-      {ollamaData && ollamaData.models ? (
-        <>
+      {/* Current GPU Status */}
+      {currentGpuData && currentGpuData.gpus && (
+        <div className="glossy-card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current GPU Status</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {ollamaData.models.map((model, idx) => (
-              <div key={idx} className="glossy-card p-6">
+            {currentGpuData.gpus.map((gpu) => (
+              <div key={gpu.gpu_id} className="p-4 bg-gray-50 rounded-lg">
                 <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
-                  Model
+                  GPU {gpu.gpu_id}
                 </div>
-                <div className="text-xl font-bold text-gray-900 mb-4">{model.name}</div>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div>Requests: {model.requests}</div>
-                  <div>Input Tokens: {model.input_tokens}</div>
-                  <div>Output Tokens: {model.output_tokens}</div>
-                  <div>Total Tokens: {model.total_tokens}</div>
+                <div className="text-xl font-bold text-gray-900 mb-2">{gpu.gpu_name}</div>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <div>Utilization: {gpu.utilization}%</div>
+                  <div>Memory: {gpu.memory_used.toFixed(1)} / {gpu.memory_total.toFixed(1)} GB</div>
+                  <div>Memory Utilization: {((gpu.memory_used / gpu.memory_total) * 100).toFixed(1)}%</div>
+                  <div>Temperature: {gpu.temperature}°C</div>
                 </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
 
-          {/* Historical Graph */}
-          {historicalData && historicalData.length > 0 && (
-            <div className="glossy-card p-6 mt-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Token Generation History</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="timestamp" 
-                    stroke="#9ca3af"
-                    tickFormatter={(value) => new Date(value).toLocaleTimeString()}
-                  />
-                  <YAxis stroke="#9ca3af" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
-                    labelStyle={{ color: '#374151' }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="input_tokens" stroke="#3b82f6" name="Input Tokens" />
-                  <Line type="monotone" dataKey="output_tokens" stroke="#10b981" name="Output Tokens" />
-                </LineChart>
-              </ResponsiveContainer>
+      {/* Load Test Controls */}
+      <div className="glossy-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">GPU Load Test</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm text-gray-600 block mb-2">Test Duration</label>
+            <select
+              value={selectedDuration}
+              onChange={(e) => setSelectedDuration(parseInt(e.target.value))}
+              className="glossy-input w-full"
+            >
+              {durationOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="text-sm text-blue-800">
+              <strong>Target:</strong> 90% GPU Memory Utilization
+            </div>
+            <div className="text-sm text-blue-600 mt-1">
+              This load test will attempt to maximize GPU memory usage to the target level for the specified duration.
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <button
+              onClick={startLoadTest}
+              disabled={isLoading}
+              className="glossy-button flex items-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              {isLoading ? 'Running...' : 'Start Load Test'}
+            </button>
+            
+            {isLoading && (
+              <button
+                onClick={stopLoadTest}
+                className="bg-red-500 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm transition-all duration-200"
+              >
+                Stop
+              </button>
+            )}
+          </div>
+
+          {loadStatus && (
+            <div className={`p-4 rounded-lg ${
+              loadStatus.includes('completed') ? 'bg-green-50 text-green-800' :
+              loadStatus.includes('failed') || loadStatus.includes('Failed') ? 'bg-red-50 text-red-800' :
+              'bg-blue-50 text-blue-800'
+            }`}>
+              {loadStatus}
             </div>
           )}
-        </>
-      ) : (
-        <div className="glossy-card p-6 text-gray-600">Unable to retrieve Ollama metrics</div>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

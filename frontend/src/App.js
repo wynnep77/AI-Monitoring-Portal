@@ -13,7 +13,7 @@ function App() {
   const [selectedServer, setSelectedServer] = useState('localhost');
   const [overview, setOverview] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(5);
+  const [refreshInterval, setRefreshInterval] = useState(1);
   const [showAddServer, setShowAddServer] = useState(false);
   const [testMode, setTestMode] = useState(false);
   const [apiError, setApiError] = useState(null);

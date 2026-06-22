@@ -6,6 +6,8 @@ from typing import List, Optional
 import uvicorn
 import threading
 import time
+import requests
+import random
 
 from database import init_db, get_db, MonitoredServer, cleanup_old_data
 from monitors import GPUMonitor, CPUMonitor, StorageMonitor
@@ -389,8 +391,24 @@ async def get_overview(server_name: str = "localhost"):
 
 # Load Generation Endpoints
 def run_load_test(server_name: str, duration: int, target_memory_utilization: int):
-    """Background thread function to run load test"""
+    """Background thread function to run load test using Ollama API"""
     global load_test_state
+    
+    # Sample tasks for load generation
+    tasks = [
+        {"type": "qa", "prompt": "What are the main principles of machine learning? Explain in detail."},
+        {"type": "generation", "prompt": "Write a comprehensive guide on sustainable energy solutions for modern cities."},
+        {"type": "analysis", "prompt": "Analyze the economic impacts of artificial intelligence on the job market."},
+        {"type": "qa", "prompt": "Explain quantum computing concepts and their potential applications."},
+        {"type": "generation", "prompt": "Create a detailed business plan for a tech startup focused on renewable energy."},
+        {"type": "analysis", "prompt": "Compare and contrast different approaches to natural language processing."},
+        {"type": "qa", "prompt": "What are the ethical considerations in AI development and deployment?"},
+        {"type": "generation", "prompt": "Write a scientific article about recent breakthroughs in biotechnology."},
+        {"type": "analysis", "prompt": "Evaluate the effectiveness of various cloud computing architectures."},
+        {"type": "qa", "prompt": "Explain the differences between supervised and unsupervised learning."},
+    ]
+    
+    ollama_api_url = "http://localhost:11434/api/generate"
     
     try:
         load_test_state["running"] = True
@@ -408,17 +426,45 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
             elapsed = (datetime.utcnow() - load_test_state["start_time"]).total_seconds()
             load_test_state["progress"] = min((elapsed / duration) * 100, 100)
             
-            # Simulate load generation by checking GPU metrics
+            # Select a random task
+            task = random.choice(tasks)
+            
+            # Send request to Ollama API
+            try:
+                payload = {
+                    "model": "llama3.2",
+                    "prompt": task["prompt"],
+                    "stream": False,
+                    "options": {
+                        "num_predict": 500,  # Generate 500 tokens per request
+                        "temperature": 0.7,
+                    }
+                }
+                
+                response = requests.post(ollama_api_url, json=payload, timeout=30)
+                
+                if response.status_code == 200:
+                    print(f"Load test task completed: {task['type']}")
+                else:
+                    print(f"Ollama API error: {response.status_code}")
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"Error sending request to Ollama: {e}")
+                # Continue even if one request fails
+                time.sleep(1)
+                continue
+            
+            # Check GPU metrics to see if we're approaching target
             try:
                 if gpu_monitor:
                     gpu_info = gpu_monitor.get_all_gpu_info(server_name)
                     if gpu_info:
-                        # In a real implementation, this would actually load the GPU
-                        # For now, we simulate by tracking progress
-                        pass
+                        avg_memory_util = sum([(g['memory_used'] / g['memory_total']) * 100 for g in gpu_info]) / len(gpu_info)
+                        print(f"Current GPU memory utilization: {avg_memory_util:.1f}%")
             except Exception as e:
-                print(f"Error during load test: {e}")
+                print(f"Error checking GPU metrics: {e}")
             
+            # Small delay between requests
             time.sleep(2)
         
         if load_test_state["running"]:
@@ -429,6 +475,7 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
     except Exception as e:
         load_test_state["error"] = str(e)
         load_test_state["status"] = "failed"
+        print(f"Load test error: {e}")
     finally:
         load_test_state["running"] = False
 

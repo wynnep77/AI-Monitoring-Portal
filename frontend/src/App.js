@@ -1138,7 +1138,7 @@ function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestR
           timestamp: timestamp,
           ...response.data.gpus.reduce((acc, gpu, index) => {
             acc[`gpu${index}_utilization`] = gpu.utilization;
-            acc[`gpu${index}_memory`] = ((gpu.memory_used / gpu.memory_total) * 100).toFixed(1);
+            acc[`gpu${index}_memory`] = parseFloat(((gpu.memory_used / gpu.memory_total) * 100).toFixed(1));
             return acc;
           }, {})
         };
@@ -1285,35 +1285,45 @@ function LoadGenerationTab({ serverName, API_BASE, loadTestRunning, setLoadTestR
       </div>
 
       {/* Real-time GPU Utilization Graph */}
-      {gpuUtilizationHistory.length > 0 && (
-        <div className="glossy-card p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Real-time GPU Utilization</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={gpuUtilizationHistory}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="timestamp" 
-                stroke="#9ca3af"
-              />
-              <YAxis stroke="#9ca3af" domain={[0, 100]} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
-                labelStyle={{ color: '#374151' }}
-              />
-              <Legend />
-              {currentGpuData && currentGpuData.gpus && currentGpuData.gpus.map((gpu, index) => (
+      <div className="glossy-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Real-time GPU Utilization</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={gpuUtilizationHistory.length > 0 ? gpuUtilizationHistory : [{timestamp: 'Loading...'}]}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis 
+              dataKey="timestamp" 
+              stroke="#9ca3af"
+            />
+            <YAxis stroke="#9ca3af" domain={[0, 100]} />
+            <Tooltip 
+              contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb' }}
+              labelStyle={{ color: '#374151' }}
+            />
+            <Legend />
+            {currentGpuData && currentGpuData.gpus && currentGpuData.gpus.map((gpu, index) => (
+              <>
                 <Line 
                   key={`gpu${index}_utilization`}
                   type="monotone" 
                   dataKey={`gpu${index}_utilization`} 
                   stroke={index === 0 ? '#3b82f6' : index === 1 ? '#10b981' : index === 2 ? '#f59e0b' : '#ef4444'}
                   name={`GPU ${index} Utilization %`}
+                  connectNulls={false}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+                <Line 
+                  key={`gpu${index}_memory`}
+                  type="monotone" 
+                  dataKey={`gpu${index}_memory`} 
+                  stroke={index === 0 ? '#8b5cf6' : index === 1 ? '#ec4899' : index === 2 ? '#14b8a6' : '#f97316'}
+                  name={`GPU ${index} Memory %`}
+                  strokeDasharray="5 5"
+                  connectNulls={false}
+                />
+              </>
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

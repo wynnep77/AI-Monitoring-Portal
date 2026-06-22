@@ -409,6 +409,7 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
     ]
     
     ollama_api_url = "http://localhost:11434/api/generate"
+    ollama_tags_url = "http://localhost:11434/api/tags"
     
     try:
         load_test_state["running"] = True
@@ -418,6 +419,46 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
         load_test_state["target_memory_utilization"] = target_memory_utilization
         load_test_state["progress"] = 0
         load_test_state["error"] = None
+        
+        # Check if Ollama API is accessible
+        try:
+            response = requests.get(ollama_tags_url, timeout=5)
+            if response.status_code != 200:
+                load_test_state["error"] = f"Ollama API not accessible. Status: {response.status_code}"
+                load_test_state["status"] = "failed"
+                load_test_state["running"] = False
+                return
+        except requests.exceptions.RequestException as e:
+            load_test_state["error"] = f"Cannot connect to Ollama API at {ollama_tags_url}. Error: {str(e)}"
+            load_test_state["status"] = "failed"
+            load_test_state["running"] = False
+            return
+        
+        # Check if llama3.2 model is available
+        try:
+            response = requests.get(ollama_tags_url, timeout=5)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                model_names = [model.get("name", "") for model in models]
+                llama_available = any("llama3.2" in name for name in model_names)
+                
+                if not llama_available:
+                    load_test_state["error"] = f"llama3.2 model not found in Ollama. Available models: {model_names}"
+                    load_test_state["status"] = "failed"
+                    load_test_state["running"] = False
+                    return
+                else:
+                    print(f"llama3.2 model found. Available models: {model_names}")
+            else:
+                load_test_state["error"] = f"Failed to check available models. Status: {response.status_code}"
+                load_test_state["status"] = "failed"
+                load_test_state["running"] = False
+                return
+        except Exception as e:
+            load_test_state["error"] = f"Error checking available models: {str(e)}"
+            load_test_state["status"] = "failed"
+            load_test_state["running"] = False
+            return
         
         end_time = datetime.utcnow() + timedelta(seconds=duration)
         

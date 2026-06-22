@@ -421,38 +421,48 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
         
         end_time = datetime.utcnow() + timedelta(seconds=duration)
         
+        # Number of concurrent requests to generate more load
+        concurrent_requests = 3
+        
         while datetime.utcnow() < end_time and load_test_state["running"]:
             # Calculate progress
             elapsed = (datetime.utcnow() - load_test_state["start_time"]).total_seconds()
             load_test_state["progress"] = min((elapsed / duration) * 100, 100)
             
-            # Select a random task
-            task = random.choice(tasks)
+            # Send multiple concurrent requests to generate more load
+            threads = []
+            for i in range(concurrent_requests):
+                task = random.choice(tasks)
+                
+                def send_request(task_data):
+                    try:
+                        payload = {
+                            "model": "llama3.2",
+                            "prompt": task_data["prompt"],
+                            "stream": False,
+                            "options": {
+                                "num_predict": 2000,  # Increased from 500 to 2000 tokens
+                                "temperature": 0.7,
+                            }
+                        }
+                        
+                        response = requests.post(ollama_api_url, json=payload, timeout=60)
+                        
+                        if response.status_code == 200:
+                            print(f"Load test task completed: {task_data['type']}")
+                        else:
+                            print(f"Ollama API error: {response.status_code} - {response.text}")
+                            
+                    except requests.exceptions.RequestException as e:
+                        print(f"Error sending request to Ollama: {e}")
+                
+                thread = threading.Thread(target=send_request, args=(task,))
+                thread.start()
+                threads.append(thread)
             
-            # Send request to Ollama API
-            try:
-                payload = {
-                    "model": "llama3.2",
-                    "prompt": task["prompt"],
-                    "stream": False,
-                    "options": {
-                        "num_predict": 500,  # Generate 500 tokens per request
-                        "temperature": 0.7,
-                    }
-                }
-                
-                response = requests.post(ollama_api_url, json=payload, timeout=30)
-                
-                if response.status_code == 200:
-                    print(f"Load test task completed: {task['type']}")
-                else:
-                    print(f"Ollama API error: {response.status_code}")
-                    
-            except requests.exceptions.RequestException as e:
-                print(f"Error sending request to Ollama: {e}")
-                # Continue even if one request fails
-                time.sleep(1)
-                continue
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join(timeout=70)
             
             # Check GPU metrics to see if we're approaching target
             try:
@@ -464,8 +474,8 @@ def run_load_test(server_name: str, duration: int, target_memory_utilization: in
             except Exception as e:
                 print(f"Error checking GPU metrics: {e}")
             
-            # Small delay between requests
-            time.sleep(2)
+            # Small delay between batches
+            time.sleep(1)
         
         if load_test_state["running"]:
             load_test_state["status"] = "completed"
